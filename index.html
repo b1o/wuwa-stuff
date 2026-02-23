@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wuwa Quest Viewer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f1117; color: #e0e0e0; height: 100vh; display: flex; }
+
+  /* Sidebar */
+  .sidebar { width: 380px; min-width: 380px; border-right: 1px solid #1e2030; display: flex; flex-direction: column; background: #13151f; }
+  .search-bar { padding: 12px; border-bottom: 1px solid #1e2030; display: flex; flex-direction: column; gap: 8px; }
+  .search-bar input { width: 100%; padding: 8px 12px; border: 1px solid #2a2d3e; border-radius: 6px; background: #1a1c2a; color: #e0e0e0; font-size: 14px; outline: none; }
+  .search-bar input:focus { border-color: #5b6eea; }
+  .search-bar select { width: 100%; padding: 8px 12px; border: 1px solid #2a2d3e; border-radius: 6px; background: #1a1c2a; color: #e0e0e0; font-size: 13px; outline: none; }
+  .search-meta { font-size: 12px; color: #666; padding: 0 2px; }
+
+  .quest-list { flex: 1; overflow-y: auto; }
+  .quest-item { padding: 10px 14px; border-bottom: 1px solid #1a1c2a; cursor: pointer; transition: background 0.1s; }
+  .quest-item:hover { background: #1a1e2e; }
+  .quest-item.active { background: #1e2540; border-left: 3px solid #5b6eea; }
+  .quest-item .q-name { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .quest-item .q-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 3px; }
+  .quest-item .q-pill { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+  .quest-item .q-type { background: #222540; color: #8890b5; }
+  .quest-item .q-chapter { background: #1e2a22; color: #7bb88a; }
+  .quest-item .q-act { background: #2a2420; color: #b8a07b; }
+  .quest-item .q-id { font-size: 10px; color: #555; }
+
+  .load-more { padding: 12px; text-align: center; }
+  .load-more button { padding: 6px 20px; border: 1px solid #2a2d3e; border-radius: 6px; background: #1a1c2a; color: #aaa; cursor: pointer; font-size: 13px; }
+  .load-more button:hover { background: #222540; }
+
+  /* Main content */
+  .main { flex: 1; overflow-y: auto; padding: 24px 32px; }
+  .empty-state { display: flex; align-items: center; justify-content: center; height: 100%; color: #555; font-size: 15px; }
+
+  .quest-header { margin-bottom: 24px; }
+  .quest-header h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; color: #f0f0f0; }
+  .quest-header .q-desc { font-size: 14px; color: #999; margin-bottom: 10px; line-height: 1.5; }
+  .quest-header .q-info { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: #777; }
+  .quest-header .q-info span { background: #1a1c2a; padding: 4px 10px; border-radius: 4px; }
+
+  /* Dialog */
+  .dialog-section { margin-top: 20px; }
+  .dialog-section h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #c0c8e0; border-bottom: 1px solid #1e2030; padding-bottom: 8px; }
+
+  .dialog-group { margin-bottom: 24px; }
+  .dialog-group-label { font-size: 13px; font-weight: 600; color: #7b88b8; margin-bottom: 10px; padding: 6px 10px; background: #161825; border-radius: 6px; border-left: 3px solid #3d4a8a; }
+
+  .dialog-line { display: flex; gap: 10px; margin-bottom: 6px; padding: 6px 10px; border-radius: 6px; }
+  .dialog-line:hover { background: #161825; }
+  .dialog-speaker { font-weight: 600; color: #8b9ad8; min-width: 120px; flex-shrink: 0; font-size: 13px; padding-top: 1px; }
+  .dialog-text { font-size: 14px; line-height: 1.5; color: #d0d0d0; }
+
+  .dialog-options { margin: 4px 0 8px 130px; }
+  .dialog-option { font-size: 13px; color: #a0a8c8; padding: 4px 10px; margin-bottom: 3px; border-left: 2px solid #3d4a8a; background: #13151f; border-radius: 0 4px 4px 0; }
+
+  .dialog-center-text { text-align: center; font-style: italic; color: #9a8ec0; padding: 10px 20px; margin: 8px 0; border-top: 1px solid #1e2030; border-bottom: 1px solid #1e2030; font-size: 14px; }
+  .dialog-cutscene { display: flex; align-items: center; gap: 8px; padding: 8px 14px; margin: 8px 0; background: #1a1525; border: 1px solid #2a2540; border-radius: 6px; color: #b0a0d0; font-size: 13px; }
+  .dialog-cutscene-icon { font-size: 16px; }
+  .dialog-narration { padding: 6px 10px; margin-bottom: 6px; color: #a0a0a0; font-style: italic; font-size: 14px; }
+
+  .no-dialog { color: #555; font-style: italic; font-size: 14px; padding: 20px 0; }
+
+  .quest-chain { display: flex; align-items: stretch; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .quest-chain-group { display: flex; flex-direction: column; gap: 4px; }
+  .quest-chain-group-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 0.5px; }
+  .quest-chain-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 6px; background: #1a1c2a; border: 1px solid #2a2d3e; border-left: 3px solid #2a2d3e; color: #8890b5; font-size: 13px; cursor: pointer; text-decoration: none; transition: all 0.15s; }
+  .quest-chain-btn:hover { background: #222540; color: #c0c8e0; }
+  .quest-chain-btn[data-qtype="Main Quests"] { border-left-color: #d4a44a; }
+  .quest-chain-btn[data-qtype="Main Quests"]:hover { border-color: #d4a44a; }
+  .quest-chain-btn[data-qtype="Side Quests"] { border-left-color: #5b6eea; }
+  .quest-chain-btn[data-qtype="Side Quests"]:hover { border-color: #5b6eea; }
+  .quest-chain-btn[data-qtype="Companion Quests"] { border-left-color: #e06090; }
+  .quest-chain-btn[data-qtype="Companion Quests"]:hover { border-color: #e06090; }
+  .quest-chain-btn[data-qtype="Exploration"] { border-left-color: #50b080; }
+  .quest-chain-btn[data-qtype="Exploration"]:hover { border-color: #50b080; }
+  .quest-chain-type { font-size: 10px; opacity: 0.6; }
+  .quest-chain-arrow { font-size: 14px; }
+
+  /* Credit banner */
+  .credit-banner { padding: 8px 12px; border-top: 1px solid #1e2030; font-size: 11px; color: #555; text-align: center; flex-shrink: 0; }
+  .credit-banner a { color: #7080b8; text-decoration: none; }
+  .credit-banner a:hover { color: #a0b0e0; text-decoration: underline; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2a2d3e; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3d5e; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="Loading quests..." disabled autofocus>
+    <select id="typeFilter" disabled><option value="">All types</option></select>
+    <div class="search-meta" id="searchMeta">Loading quest data...</div>
+  </div>
+  <div class="quest-list" id="questList"></div>
+  <div class="load-more" id="loadMore" style="display:none">
+    <button onclick="loadNextPage()">Load more</button>
+  </div>
+  <div class="credit-banner">Data from <a href="https://github.com/Dimbreath/WutheringData" target="_blank" rel="noopener">Dimbreath/WutheringData</a></div>
+</div>
+
+<div class="main" id="mainContent">
+  <div class="empty-state">Loading quest data...</div>
+</div>
+
+<script>
+const PAGE_SIZE = 50;
+let allQuests = [];
+let questById = {};
+let filtered = [];
+let currentPage = 1;
+let activeQuestId = null;
+let debounceTimer = null;
+
+const searchInput = document.getElementById('searchInput');
+const typeFilter = document.getElementById('typeFilter');
+const questList = document.getElementById('questList');
+const loadMoreDiv = document.getElementById('loadMore');
+const searchMeta = document.getElementById('searchMeta');
+const mainContent = document.getElementById('mainContent');
+
+// Load the quest index
+fetch('data/quests.json')
+  .then(r => r.json())
+  .then(quests => {
+    allQuests = quests;
+    questById = {};
+    for (const q of quests) questById[q.id] = q;
+
+    // Populate type filter
+    const types = [...new Set(quests.map(q => q.type))].sort();
+    for (const t of types) {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      typeFilter.appendChild(opt);
+    }
+
+    searchInput.disabled = false;
+    searchInput.placeholder = 'Search quests by name...';
+    typeFilter.disabled = false;
+    mainContent.innerHTML = '<div class="empty-state">Search for a quest to view its details and dialog</div>';
+
+    filterAndRender();
+    searchInput.focus();
+  });
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => { currentPage = 1; filterAndRender(); }, 150);
+});
+
+typeFilter.addEventListener('change', () => { currentPage = 1; filterAndRender(); });
+
+function filterAndRender(append = false) {
+  const q = searchInput.value.toLowerCase();
+  const type = typeFilter.value;
+
+  filtered = allQuests;
+  if (q) filtered = filtered.filter(quest => quest.name.toLowerCase().includes(q));
+  if (type) filtered = filtered.filter(quest => quest.type === type);
+
+  searchMeta.textContent = `${filtered.length} quest${filtered.length !== 1 ? 's' : ''} found`;
+
+  if (!append) questList.innerHTML = '';
+
+  const start = append ? (currentPage - 1) * PAGE_SIZE : 0;
+  const end = currentPage * PAGE_SIZE;
+  const page = filtered.slice(start, end);
+
+  for (const q of page) {
+    const div = document.createElement('div');
+    div.className = 'quest-item' + (q.id === activeQuestId ? ' active' : '');
+    div.dataset.id = q.id;
+    const chapterPill = q.chapterName && !q.chapterName.startsWith('QuestChapter_')
+      ? `<span class="q-pill q-chapter" title="${esc(q.chapterName)}">${esc(q.chapterName)}</span>` : '';
+    const actPill = q.actName && !q.actName.startsWith('QuestChapter_')
+      ? `<span class="q-pill q-act" title="${esc(q.actName)}">${esc(q.actName)}</span>` : '';
+    const chapterNum = q.chapterNum && !q.chapterNum.startsWith('QuestChapter_') ? q.chapterNum : '';
+
+    div.innerHTML = `
+      <div class="q-name">${esc(q.name)}</div>
+      <div class="q-pills">
+        <span class="q-pill q-type">${esc(q.type)}</span>
+        ${chapterPill}${actPill}
+      </div>
+      <div class="q-id">${q.id}${chapterNum ? ' · ' + esc(chapterNum) : ''}</div>
+    `;
+    div.onclick = () => selectQuest(q.id, div);
+    questList.appendChild(div);
+  }
+
+  loadMoreDiv.style.display = end < filtered.length ? '' : 'none';
+}
+
+function loadNextPage() {
+  currentPage++;
+  filterAndRender(true);
+}
+
+async function selectQuest(id, el) {
+  activeQuestId = id;
+  document.querySelectorAll('.quest-item').forEach(e => e.classList.remove('active'));
+  if (el) {
+    el.classList.add('active');
+  } else {
+    const existing = questList.querySelector(`[data-id="${id}"]`);
+    if (existing) existing.classList.add('active');
+  }
+
+  const q = questById[id];
+  if (!q) {
+    mainContent.innerHTML = '<div class="empty-state">Quest not found</div>';
+    return;
+  }
+
+  mainContent.innerHTML = '<div class="empty-state">Loading dialog...</div>';
+
+  // Quest info is already in memory, dialog is fetched per-quest
+  let dialog = [];
+  try {
+    const res = await fetch(`data/quests/${id}.json`);
+    if (res.ok) {
+      const detail = await res.json();
+      dialog = detail.dialog || [];
+    }
+  } catch {}
+
+  const chain = q.chain || { prev: [], next: [] };
+
+  let chainHtml = '';
+  if (chain.prev.length > 0 || chain.next.length > 0) {
+    chainHtml = '<div class="quest-chain">';
+    if (chain.prev.length > 0) {
+      chainHtml += '<div class="quest-chain-group"><div class="quest-chain-group-label">Previous</div>';
+      for (const p of chain.prev) {
+        const label = p.name ? esc(p.name) : `Quest ${p.id}`;
+        const qtype = p.type || '';
+        chainHtml += `<a class="quest-chain-btn" data-qtype="${esc(qtype)}" onclick="selectQuest(${p.id})" title="${qtype}"><span class="quest-chain-arrow">&larr;</span> ${label}<span class="quest-chain-type">${esc(qtype)}</span></a>`;
+      }
+      chainHtml += '</div>';
+    }
+    if (chain.next.length > 0) {
+      chainHtml += '<div class="quest-chain-group"><div class="quest-chain-group-label">Next</div>';
+      for (const n of chain.next) {
+        const label = n.name ? esc(n.name) : `Quest ${n.id}`;
+        const qtype = n.type || '';
+        chainHtml += `<a class="quest-chain-btn" data-qtype="${esc(qtype)}" onclick="selectQuest(${n.id})" title="${qtype}">${label} <span class="quest-chain-arrow">&rarr;</span><span class="quest-chain-type">${esc(qtype)}</span></a>`;
+      }
+      chainHtml += '</div>';
+    }
+    chainHtml += '</div>';
+  }
+
+  let html = `
+    <div class="quest-header">
+      <h1>${esc(q.name)}</h1>
+      ${chainHtml}
+      <div class="q-desc">${esc(q.description)}</div>
+      <div class="q-info">
+        <span>${esc(q.type)}</span>
+        <span>ID: ${q.id}</span>
+        ${q.chapterName && !q.chapterName.startsWith('QuestChapter_') ? `<span>${esc(q.chapterName)}</span>` : ''}
+        ${q.actName && !q.actName.startsWith('QuestChapter_') ? `<span>${esc(q.actName)}</span>` : ''}
+        ${q.chapterNum && !q.chapterNum.startsWith('QuestChapter_') ? `<span>${esc(q.chapterNum)}</span>` : ''}
+      </div>
+    </div>
+  `;
+
+  html += '<div class="dialog-section">';
+  const totalItems = dialog.reduce((sum, g) => sum + g.items.length, 0);
+  html += `<h2>Dialog (${dialog.length} group${dialog.length !== 1 ? 's' : ''}, ${totalItems} items)</h2>`;
+
+  if (dialog.length === 0) {
+    html += '<div class="no-dialog">No dialog found for this quest</div>';
+  }
+
+  for (const group of dialog) {
+    const label = group.stepLabel.startsWith('Quest_') ? (group.nodeDesc || `Step ${group.nodeId}`) : group.stepLabel;
+    html += `<div class="dialog-group">`;
+    html += `<div class="dialog-group-label">${esc(label)}</div>`;
+
+    for (const item of group.items) {
+      if (item.kind === 'cutscene') {
+        html += `<div class="dialog-cutscene"><span class="dialog-cutscene-icon">&#9654;</span> Cutscene: ${esc(item.videoName)}</div>`;
+      } else if (item.kind === 'centerText') {
+        html += `<div class="dialog-center-text">${esc(item.text)}</div>`;
+      } else if (item.kind === 'narration') {
+        html += `<div class="dialog-narration">${esc(item.text)}</div>`;
+      } else {
+        html += `
+          <div class="dialog-line">
+            <div class="dialog-speaker">${esc(item.speaker)}</div>
+            <div class="dialog-text">${esc(item.text)}</div>
+          </div>
+        `;
+        if (item.options) {
+          html += '<div class="dialog-options">';
+          for (const opt of item.options) {
+            html += `<div class="dialog-option">${esc(opt.text)}</div>`;
+          }
+          html += '</div>';
+        }
+      }
+    }
+
+    html += '</div>';
+  }
+
+  html += '</div>';
+  mainContent.innerHTML = html;
+}
+
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>

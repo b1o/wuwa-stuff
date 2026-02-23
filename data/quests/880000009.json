@@ -1,0 +1,1 @@
+{"dialog":[{"stepLabel":"确认本日可找的NPC","nodeId":116,"nodeDesc":"确认本日可找的NPC","items":[{"kind":"talk","speaker":"Maqi","text":"Well, maybe you should ask the owner of Huaipu Mining Firm. He is a knowledgeable mineral expert.","whoId":201},{"kind":"talk","speaker":"Maqi","text":"Since it's about the Mithril, I suggest you go ask for his advice.","whoId":201}]}]}
