@@ -6,7 +6,12 @@
 <title>Wuwa Quest Viewer</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, sans-serif; background: #0f1117; color: #e0e0e0; height: 100vh; display: flex; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f1117; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+  nav { display: flex; gap: 2px; padding: 6px 12px; background: #0b0d14; border-bottom: 1px solid #1e2030; flex-shrink: 0; }
+  nav a { padding: 5px 14px; border-radius: 5px; font-size: 13px; color: #777; text-decoration: none; transition: all 0.12s; }
+  nav a:hover { background: #1a1c2a; color: #c0c8e0; }
+  nav a.active { background: #1e2540; color: #e0e0e0; }
+  .app { flex: 1; display: flex; overflow: hidden; }
 
   /* Sidebar */
   .sidebar { width: 380px; min-width: 380px; border-right: 1px solid #1e2030; display: flex; flex-direction: column; background: #13151f; }
@@ -94,6 +99,11 @@
 </head>
 <body>
 
+<nav>
+  <a href="/" class="active">Quests</a>
+  <a href="/wordcloud.html">Word Cloud</a>
+</nav>
+<div class="app">
 <div class="sidebar">
   <div class="search-bar">
     <input type="text" id="searchInput" placeholder="Loading quests..." disabled autofocus>
@@ -109,6 +119,7 @@
 
 <div class="main" id="mainContent">
   <div class="empty-state">Loading quest data...</div>
+</div>
 </div>
 
 <script>
