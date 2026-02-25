@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Wuwa Character Word Cloud</title>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+			body {
+				font-family: system-ui, -apple-system, sans-serif;
+				background: #0f1117;
+				color: #e0e0e0;
+				height: 100vh;
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
+			}
+			nav {
+				display: flex;
+				gap: 2px;
+				padding: 6px 12px;
+				background: #0b0d14;
+				border-bottom: 1px solid #1e2030;
+				flex-shrink: 0;
+			}
+			nav a {
+				padding: 5px 14px;
+				border-radius: 5px;
+				font-size: 13px;
+				color: #777;
+				text-decoration: none;
+				transition: all 0.12s;
+			}
+			nav a:hover { background: #1a1c2a; color: #c0c8e0; }
+			nav a.active { background: #1e2540; color: #e0e0e0; }
+
+			.top-bar {
+				padding: 20px 24px 12px;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 8px;
+				flex-shrink: 0;
+			}
+			.top-bar h1 {
+				font-size: 18px;
+				font-weight: 600;
+				color: #c0c8e0;
+			}
+			.top-bar select {
+				width: 280px;
+				padding: 10px 14px;
+				border: 1px solid #2a2d3e;
+				border-radius: 8px;
+				background: #1a1c2a;
+				color: #e0e0e0;
+				font-size: 14px;
+				outline: none;
+				cursor: pointer;
+			}
+			.top-bar select:focus {
+				border-color: #5b6eea;
+			}
+			.top-bar input[type="text"] {
+				width: 280px;
+				padding: 8px 14px;
+				border: 1px solid #2a2d3e;
+				border-radius: 8px;
+				background: #1a1c2a;
+				color: #e0e0e0;
+				font-size: 13px;
+				outline: none;
+			}
+			.top-bar input[type="text"]:focus {
+				border-color: #5b6eea;
+			}
+			.search-result {
+				display: none;
+				position: absolute;
+				top: 100%;
+				left: 0;
+				right: 0;
+				margin-top: 4px;
+				padding: 8px 12px;
+				background: #1a1c2a;
+				border: 1px solid #2a2d3e;
+				border-radius: 8px;
+				font-size: 13px;
+				color: #999;
+				z-index: 20;
+				max-height: 180px;
+				overflow-y: auto;
+			}
+			.search-result.visible { display: block; }
+			.search-result-item {
+				display: flex;
+				justify-content: space-between;
+				padding: 3px 0;
+			}
+			.search-result-item {
+				cursor: pointer;
+				border-radius: 4px;
+				margin: 0 -4px;
+				padding: 3px 4px;
+			}
+			.search-result-item:hover { background: #222540; }
+			.search-result-item .sr-word { color: #c0c8e0; }
+			.search-result-item .sr-count { color: #5b6eea; }
+			.search-result-item .sr-note { color: #555; font-size: 11px; margin-left: 6px; }
+
+			.modal-overlay {
+				position: fixed;
+				inset: 0;
+				background: rgba(0,0,0,0.6);
+				z-index: 100;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			.modal-overlay.hidden { display: none; }
+			.modal {
+				background: #13151f;
+				border: 1px solid #2a2d3e;
+				border-radius: 12px;
+				width: min(640px, 90vw);
+				max-height: 80vh;
+				display: flex;
+				flex-direction: column;
+				box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+			}
+			.modal-header {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				padding: 14px 18px;
+				border-bottom: 1px solid #1e2030;
+			}
+			.modal-header h2 {
+				font-size: 16px;
+				font-weight: 600;
+				color: #c0c8e0;
+			}
+			.modal-header h2 span {
+				color: #5b6eea;
+			}
+			.modal-close {
+				background: none;
+				border: none;
+				color: #666;
+				font-size: 20px;
+				cursor: pointer;
+				padding: 4px 8px;
+				border-radius: 4px;
+			}
+			.modal-close:hover { background: #1e2030; color: #e0e0e0; }
+			.modal-body {
+				padding: 12px 18px;
+				overflow-y: auto;
+				flex: 1;
+			}
+			.modal-quest-group {
+				margin-bottom: 16px;
+			}
+			.modal-quest-name {
+				font-size: 12px;
+				color: #7b88b8;
+				font-weight: 600;
+				padding: 4px 8px;
+				background: #161825;
+				border-radius: 4px;
+				margin-bottom: 6px;
+				border-left: 3px solid #3d4a8a;
+			}
+			.modal-line {
+				font-size: 13px;
+				color: #d0d0d0;
+				line-height: 1.6;
+				padding: 4px 8px;
+				border-radius: 4px;
+			}
+			.modal-line:hover { background: #161825; }
+			.modal-line mark {
+				background: #5b6eea30;
+				color: #a0b0ff;
+				border-radius: 2px;
+				padding: 0 1px;
+			}
+			.modal-count {
+				font-size: 12px;
+				color: #555;
+				padding: 0 18px 10px;
+			}
+			.top-bar .meta {
+				font-size: 12px;
+				color: #555;
+			}
+
+			.cloud-area {
+				flex: 1;
+				width: 100%;
+				position: relative;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			canvas {
+				display: block;
+			}
+
+			.empty-state {
+				color: #555;
+				font-size: 15px;
+				position: absolute;
+			}
+
+			.tooltip {
+				position: fixed;
+				padding: 6px 12px;
+				background: #1e2030;
+				border: 1px solid #2a2d3e;
+				border-radius: 6px;
+				font-size: 13px;
+				color: #e0e0e0;
+				pointer-events: none;
+				opacity: 0;
+				transition: opacity 0.12s;
+				z-index: 10;
+			}
+			.tooltip.visible {
+				opacity: 1;
+			}
+			.tooltip .tt-word {
+				font-weight: 600;
+				color: #8b9ad8;
+			}
+			.tooltip .tt-count {
+				color: #999;
+				margin-left: 6px;
+			}
+
+			.credit-banner {
+				padding: 8px 12px;
+				font-size: 11px;
+				color: #555;
+				text-align: center;
+				flex-shrink: 0;
+			}
+			.credit-banner a {
+				color: #7080b8;
+				text-decoration: none;
+			}
+			.credit-banner a:hover {
+				color: #a0b0e0;
+				text-decoration: underline;
+			}
+
+			::-webkit-scrollbar {
+				width: 6px;
+			}
+			::-webkit-scrollbar-track {
+				background: transparent;
+			}
+			::-webkit-scrollbar-thumb {
+				background: #2a2d3e;
+				border-radius: 3px;
+			}
+		</style>
+	</head>
+	<body>
+		<nav>
+			<a href="/">Quests</a>
+			<a href="/wordcloud.html" class="active">Word Cloud</a>
+		</nav>
+		<div class="top-bar" style="align-items:center">
+			<h1>Character Word Cloud</h1>
+			<select id="speakerSelect">
+				<option value="">Select a character...</option>
+			</select>
+			<div style="position:relative;display:none" id="searchWrap">
+				<input type="text" id="wordSearch" placeholder="Search for a word..." />
+				<div class="search-result" id="searchResult"></div>
+			</div>
+			<div class="meta" id="meta"></div>
+		</div>
+
+		<div class="cloud-area" id="cloudArea">
+			<div class="empty-state" id="emptyState">Select a character to see their most used words</div>
+			<canvas id="canvas"></canvas>
+		</div>
+
+		<div class="tooltip" id="tooltip">
+			<span class="tt-word" id="ttWord"></span>
+			<span class="tt-count" id="ttCount"></span>
+		</div>
+
+		<div class="modal-overlay hidden" id="modalOverlay">
+			<div class="modal">
+				<div class="modal-header">
+					<h2 id="modalTitle"></h2>
+					<button class="modal-close" id="modalClose">&times;</button>
+				</div>
+				<div class="modal-count" id="modalCount"></div>
+				<div class="modal-body" id="modalBody"></div>
+			</div>
+		</div>
+
+		<div class="credit-banner">
+			Data from
+			<a href="https://github.com/Dimbreath/WutheringData" target="_blank" rel="noopener">Dimbreath/WutheringData</a>
+		</div>
+
+		<script>
+			const speakerSelect = document.getElementById("speakerSelect");
+			const wordSearch = document.getElementById("wordSearch");
+			const meta = document.getElementById("meta");
+			const canvas = document.getElementById("canvas");
+			const ctx = canvas.getContext("2d");
+			const cloudArea = document.getElementById("cloudArea");
+			const emptyState = document.getElementById("emptyState");
+			const tooltip = document.getElementById("tooltip");
+			const ttWord = document.getElementById("ttWord");
+			const ttCount = document.getElementById("ttCount");
+
+			let bubbles = []; // { x, y, r, word, count, color }
+			let allWords = []; // full word list { word, count }
+			let allLines = []; // cached lines for current speaker
+			let hoveredBubble = null;
+			let searchTerm = "";
+			const searchWrap = document.getElementById("searchWrap");
+			const searchResult = document.getElementById("searchResult");
+			const modalOverlay = document.getElementById("modalOverlay");
+			const modalTitle = document.getElementById("modalTitle");
+			const modalCount = document.getElementById("modalCount");
+			const modalBody = document.getElementById("modalBody");
+			const modalClose = document.getElementById("modalClose");
+
+			modalClose.addEventListener("click", () => modalOverlay.classList.add("hidden"));
+			modalOverlay.addEventListener("click", (e) => {
+				if (e.target === modalOverlay) modalOverlay.classList.add("hidden");
+			});
+
+			// --- Palette ---
+			const PALETTE = [
+				"#5b6eea", "#e06090", "#50b080", "#d4a44a", "#9a6ed8",
+				"#e07050", "#4ab8c4", "#b0b840", "#c870a0", "#6898d8",
+			];
+
+			function colorForIndex(i) {
+				return PALETTE[i % PALETTE.length];
+			}
+
+			// --- Load speakers ---
+			fetch("data/speakers.json")
+				.then((r) => r.json())
+				.then((speakers) => {
+					for (const s of speakers) {
+						const opt = document.createElement("option");
+						opt.value = s.speaker_name;
+						opt.textContent = `${s.speaker_name} (${s.line_count} lines)`;
+						speakerSelect.appendChild(opt);
+					}
+				});
+
+			speakerSelect.addEventListener("change", () => {
+				const id = speakerSelect.value;
+				wordSearch.value = "";
+				searchTerm = "";
+				if (!id) {
+					clearCloud();
+					return;
+				}
+				loadWords(id);
+			});
+
+			wordSearch.addEventListener("input", () => {
+				searchTerm = wordSearch.value.toLowerCase().trim();
+				draw();
+				updateSearchResults();
+			});
+
+			async function loadWords(speakerId) {
+				emptyState.textContent = "Loading...";
+				emptyState.style.display = "";
+				canvas.style.display = "none";
+
+				const res = await fetch(`data/speakers/${encodeURIComponent(speakerId)}.json`);
+				const data = await res.json();
+				allWords = data.words;
+				allLines = data.lines;
+
+				if (allWords.length === 0) {
+					emptyState.textContent = "No dialog words found for this character";
+					return;
+				}
+
+				const cloudWords = allWords.slice(0, 150);
+				meta.textContent = `${allWords.length} unique words (top ${cloudWords.length} shown)`;
+				emptyState.style.display = "none";
+				canvas.style.display = "block";
+				searchWrap.style.display = "";
+
+				layoutAndDraw(cloudWords);
+			}
+
+			function clearCloud() {
+				emptyState.textContent = "Select a character to see their most used words";
+				emptyState.style.display = "";
+				canvas.style.display = "none";
+				searchWrap.style.display = "none";
+				searchResult.classList.remove("visible");
+				meta.textContent = "";
+				bubbles = [];
+				allWords = [];
+				allLines = [];
+			}
+
+			function updateSearchResults() {
+				if (!searchTerm) {
+					searchResult.classList.remove("visible");
+					return;
+				}
+				const matches = allWords.filter(w => w.word.includes(searchTerm)).slice(0, 15);
+				if (matches.length === 0) {
+					searchResult.innerHTML = '<div style="color:#555">No matches</div>';
+				} else {
+					const cloudWords = new Set(bubbles.map(b => b.word));
+					searchResult.innerHTML = matches.map(w => {
+						const inCloud = cloudWords.has(w.word);
+						return `<div class="search-result-item" data-word="${esc(w.word)}">
+							<span class="sr-word">${esc(w.word)}${inCloud ? "" : "<span class='sr-note'>(not in cloud)</span>"}</span>
+							<span class="sr-count">${w.count}x</span>
+						</div>`;
+					}).join("");
+					searchResult.querySelectorAll(".search-result-item").forEach(el => {
+						el.addEventListener("click", () => showWordLines(el.dataset.word));
+					});
+				}
+				searchResult.classList.add("visible");
+			}
+
+			// --- Bubble Pack Layout ---
+
+			function layoutAndDraw(words) {
+				const rect = cloudArea.getBoundingClientRect();
+				const W = rect.width;
+				const H = rect.height;
+				const dpr = window.devicePixelRatio || 1;
+				canvas.width = W * dpr;
+				canvas.height = H * dpr;
+				canvas.style.width = W + "px";
+				canvas.style.height = H + "px";
+				ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+				const maxCount = words[0].count;
+				const minCount = words[words.length - 1].count;
+
+				// Scale radii to fit - largest bubble ~8% of min dimension, smallest ~1.5%
+				const minDim = Math.min(W, H);
+				const maxR = minDim * 0.08;
+				const minR = minDim * 0.018;
+
+				// Map count to radius using sqrt scale for area-proportional sizing
+				const sqrtMax = Math.sqrt(maxCount);
+				const sqrtMin = Math.sqrt(minCount);
+				const sqrtRange = sqrtMax - sqrtMin || 1;
+
+				bubbles = words.map((w, i) => {
+					const t = (Math.sqrt(w.count) - sqrtMin) / sqrtRange;
+					const r = minR + t * (maxR - minR);
+					return { x: 0, y: 0, r, word: w.word, count: w.count, color: colorForIndex(i) };
+				});
+
+				// Sort largest first for packing
+				bubbles.sort((a, b) => b.r - a.r);
+
+				// Simple spiral packing from center
+				const cx = W / 2;
+				const cy = H / 2;
+
+				for (let i = 0; i < bubbles.length; i++) {
+					const b = bubbles[i];
+					if (i === 0) {
+						b.x = cx;
+						b.y = cy;
+						continue;
+					}
+
+					let placed = false;
+					// Spiral outward from center
+					for (let angle = 0; angle < 2000 && !placed; angle += 0.3) {
+						const dist = 2 + angle * 0.8;
+						const tx = cx + Math.cos(angle) * dist;
+						const ty = cy + Math.sin(angle) * dist;
+
+						let overlaps = false;
+						for (let j = 0; j < i; j++) {
+							const o = bubbles[j];
+							const dx = tx - o.x;
+							const dy = ty - o.y;
+							const minDist = b.r + o.r + 2;
+							if (dx * dx + dy * dy < minDist * minDist) {
+								overlaps = true;
+								break;
+							}
+						}
+
+						if (!overlaps) {
+							b.x = tx;
+							b.y = ty;
+							placed = true;
+						}
+					}
+
+					if (!placed) {
+						// Fallback: place far out
+						b.x = cx + (Math.random() - 0.5) * W * 0.8;
+						b.y = cy + (Math.random() - 0.5) * H * 0.8;
+					}
+				}
+
+				// Center the whole cluster
+				let bx1 = Infinity, by1 = Infinity, bx2 = -Infinity, by2 = -Infinity;
+				for (const b of bubbles) {
+					bx1 = Math.min(bx1, b.x - b.r);
+					by1 = Math.min(by1, b.y - b.r);
+					bx2 = Math.max(bx2, b.x + b.r);
+					by2 = Math.max(by2, b.y + b.r);
+				}
+				const clusterCX = (bx1 + bx2) / 2;
+				const clusterCY = (by1 + by2) / 2;
+				const offsetX = cx - clusterCX;
+				const offsetY = cy - clusterCY;
+
+				// Also scale down if cluster exceeds canvas
+				const clusterW = bx2 - bx1;
+				const clusterH = by2 - by1;
+				const scale = Math.min(1, (W - 40) / clusterW, (H - 40) / clusterH);
+
+				for (const b of bubbles) {
+					b.x = cx + (b.x - clusterCX) * scale;
+					b.y = cy + (b.y - clusterCY) * scale;
+					b.r *= scale;
+				}
+
+				draw();
+			}
+
+			function draw() {
+				const W = canvas.style.width.replace("px", "") | 0;
+				const H = canvas.style.height.replace("px", "") | 0;
+				ctx.clearRect(0, 0, W, H);
+
+				for (const b of bubbles) {
+					const isHovered = b === hoveredBubble;
+					const isMatch = searchTerm && b.word.includes(searchTerm);
+					const isDimmed = searchTerm && !isMatch;
+
+					// Circle
+					ctx.beginPath();
+					ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+					ctx.fillStyle = b.color + (isDimmed ? "08" : isHovered || isMatch ? "40" : "20");
+					ctx.fill();
+					ctx.strokeStyle = b.color + (isDimmed ? "20" : isHovered || isMatch ? "cc" : "66");
+					ctx.lineWidth = isHovered || isMatch ? 2 : 1;
+					ctx.stroke();
+
+					// Text - only if it fits
+					const fontSize = Math.max(8, Math.min(b.r * 0.7, 22));
+					ctx.font = `${isHovered || isMatch ? 600 : 500} ${fontSize}px system-ui, sans-serif`;
+					const textWidth = ctx.measureText(b.word).width;
+
+					if (textWidth < b.r * 1.8) {
+						ctx.fillStyle = b.color + (isDimmed ? "30" : isHovered || isMatch ? "ff" : "cc");
+						ctx.textAlign = "center";
+						ctx.textBaseline = "middle";
+						ctx.fillText(b.word, b.x, b.y);
+					}
+				}
+			}
+
+			// --- Hover ---
+			canvas.addEventListener("mousemove", (e) => {
+				const rect = canvas.getBoundingClientRect();
+				const mx = e.clientX - rect.left;
+				const my = e.clientY - rect.top;
+
+				let found = null;
+				for (const b of bubbles) {
+					const dx = mx - b.x;
+					const dy = my - b.y;
+					if (dx * dx + dy * dy <= b.r * b.r) {
+						found = b;
+						break;
+					}
+				}
+
+				if (found !== hoveredBubble) {
+					hoveredBubble = found;
+					draw();
+				}
+
+				if (found) {
+					canvas.style.cursor = "pointer";
+					ttWord.textContent = found.word;
+					ttCount.textContent = `${found.count} uses`;
+					tooltip.classList.add("visible");
+					tooltip.style.left = e.clientX + 14 + "px";
+					tooltip.style.top = e.clientY - 10 + "px";
+				} else {
+					canvas.style.cursor = "";
+					tooltip.classList.remove("visible");
+				}
+			});
+
+			canvas.addEventListener("mouseleave", () => {
+				hoveredBubble = null;
+				tooltip.classList.remove("visible");
+				draw();
+			});
+
+			function esc(s) {
+				if (!s) return "";
+				const d = document.createElement("div");
+				d.textContent = String(s);
+				return d.innerHTML;
+			}
+
+			function showWordLines(word) {
+				modalTitle.innerHTML = `Lines containing <span>"${esc(word)}"</span>`;
+				modalCount.textContent = "";
+				modalOverlay.classList.remove("hidden");
+
+				// Client-side filter from cached lines
+				const wordLower = word.toLowerCase();
+				const lines = allLines.filter(l => l.text.toLowerCase().includes(wordLower));
+
+				modalCount.textContent = `${lines.length} line${lines.length !== 1 ? "s" : ""} found`;
+
+				if (lines.length === 0) {
+					modalBody.innerHTML = '<div style="color:#555">No lines found</div>';
+					return;
+				}
+
+				// Group by quest
+				const groups = new Map();
+				for (const line of lines) {
+					const key = line.quest_id;
+					if (!groups.has(key)) groups.set(key, { name: line.quest_name, id: line.quest_id, lines: [] });
+					groups.get(key).lines.push(line.text);
+				}
+
+				const regex = new RegExp(`(${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+
+				let html = "";
+				for (const [, group] of groups) {
+					html += `<div class="modal-quest-group">`;
+					html += `<div class="modal-quest-name">${esc(group.name)}</div>`;
+					for (const text of group.lines) {
+						const highlighted = esc(text).replace(regex, "<mark>$1</mark>");
+						html += `<div class="modal-line">${highlighted}</div>`;
+					}
+					html += `</div>`;
+				}
+				modalBody.innerHTML = html;
+			}
+
+			// --- Canvas click ---
+			canvas.addEventListener("click", (e) => {
+				const rect = canvas.getBoundingClientRect();
+				const mx = e.clientX - rect.left;
+				const my = e.clientY - rect.top;
+
+				for (const b of bubbles) {
+					const dx = mx - b.x;
+					const dy = my - b.y;
+					if (dx * dx + dy * dy <= b.r * b.r) {
+						showWordLines(b.word);
+						return;
+					}
+				}
+			});
+
+			// --- Resize ---
+			window.addEventListener("resize", () => {
+				if (bubbles.length > 0 && speakerSelect.value) {
+					loadWords(speakerSelect.value);
+				}
+			});
+		</script>
+	</body>
+</html>
