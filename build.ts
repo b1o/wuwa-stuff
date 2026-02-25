@@ -8,6 +8,7 @@
  */
 
 import { mkdir } from "node:fs/promises";
+import { Database } from "bun:sqlite";
 
 const DATA_ROOT = "../WutheringData";
 const DATA_CONFIG_ROOT = `${DATA_ROOT}/ConfigDB`;
@@ -96,7 +97,7 @@ for (const raw of questsRaw) {
 	questMap.set(info.id, info);
 }
 
-const questTypes = [...new Set(quests.map((q) => q.type))].sort();
+const questTypes = [...new Set(quests.map((q) => q.type))]
 
 // Quest chain
 const questPrevMap = new Map<number, number[]>();
@@ -179,7 +180,8 @@ function extractItemsFromActions(actions: any[]): DialogItem[] {
 				if (text) items.push({ kind: "centerText", text });
 				continue;
 			}
-			const speaker = item.WhoId != null ? (speakerMap.get(item.WhoId) ?? `Unknown (${item.WhoId})`) : "";
+			let speaker = item.WhoId != null ? (speakerMap.get(item.WhoId) ?? `Unknown (${item.WhoId})`) : "";
+			if (speaker.includes("{PlayerName}")) speaker = "Rover";
 			const text = item.TidTalk ? t(item.TidTalk) : "";
 			if (!text) continue;
 			const line: DialogItem = { kind: speaker ? "talk" : "narration", speaker, text, whoId: item.WhoId };
@@ -199,7 +201,6 @@ function getDialogGroups(questId: number): DialogGroup[] {
 	if (!nodes) return [];
 	const playFlowNodes = nodes
 		.filter((n: any) => n.Type === "ChildQuest" && n.Condition?.Type === "PlayFlow")
-		.sort((a: any, b: any) => a.Id - b.Id);
 	const groups: DialogGroup[] = [];
 	for (const node of playFlowNodes) {
 		const flow = node.Condition.Flow;
@@ -246,9 +247,85 @@ for (const q of quests) {
 	}
 }
 
-// Copy index.html (we'll create a static version)
+// --- Word Cloud Static Data (from quests.db) ---
+
+console.log("Generating word cloud data from quests.db...");
+
+const db = new Database("./quests.db", { readonly: true });
+
+const STOP_WORDS = new Set([
+	"i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours",
+	"yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers", "herself",
+	"it", "its", "itself", "they", "them", "their", "theirs", "themselves", "what", "which",
+	"who", "whom", "this", "that", "these", "those", "am", "is", "are", "was", "were", "be",
+	"been", "being", "have", "has", "had", "having", "do", "does", "did", "doing", "a", "an",
+	"the", "and", "but", "if", "or", "because", "as", "until", "while", "of", "at", "by",
+	"for", "with", "about", "against", "between", "through", "during", "before", "after",
+	"above", "below", "to", "from", "up", "down", "in", "out", "on", "off", "over", "under",
+	"again", "further", "then", "once", "here", "there", "when", "where", "why", "how", "all",
+	"both", "each", "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only",
+	"own", "same", "so", "than", "too", "very", "s", "t", "can", "will", "just", "don", "don't",
+	"should", "now", "d", "ll", "m", "o", "re", "ve", "y", "ain", "aren", "couldn", "didn",
+	"doesn", "hadn", "hasn", "haven", "isn", "ma", "mightn", "mustn", "needn", "shan", "shouldn",
+	"wasn", "weren", "won", "wouldn", "let", "us", "go", "get", "got", "would", "could", "also",
+	"still", "much", "well", "back", "even", "come", "like", "know", "think", "make", "right",
+	"want", "need", "say", "tell", "see", "look", "one", "way", "may", "might", "shall",
+	"i'm", "it's", "that's", "what's", "there's", "here's", "he's", "she's", "who's", "how's",
+	"where's", "when's", "why's", "let's", "won't", "can't", "couldn't", "wouldn't",
+	"shouldn't", "didn't", "doesn't", "don't", "isn't", "aren't", "wasn't", "weren't",
+	"hasn't", "haven't", "hadn't", "mustn't", "needn't", "shan't", "won't", "they're",
+	"we're", "you're", "we've", "you've", "they've", "we'll", "you'll", "they'll",
+	"he'll", "she'll", "it'll", "we'd", "you'd", "they'd", "he'd", "she'd", "it'd",
+	"that'll", "who'll", "what'll", "there'll", "here'll",
+]);
+
+// speakers.json
+const speakers = db.prepare(
+	"SELECT speaker_name, count(*) as line_count FROM dialog_lines WHERE speaker_name != '' GROUP BY speaker_name ORDER BY line_count DESC"
+).all() as { speaker_name: string; line_count: number }[];
+
+await mkdir(`${OUT_DIR}/data/speakers`, { recursive: true });
+await Bun.write(`${OUT_DIR}/data/speakers.json`, JSON.stringify(speakers));
+
+// Per-speaker: words + lines
+const stmtLines = db.prepare(
+	"SELECT dl.text, q.name as quest_name, q.id as quest_id FROM dialog_lines dl JOIN quests q ON q.id = dl.quest_id WHERE dl.speaker_name = ? ORDER BY dl.quest_id, dl.sort_order"
+);
+
+for (const { speaker_name } of speakers) {
+	const lines = stmtLines.all(speaker_name) as { text: string; quest_name: string; quest_id: number }[];
+
+	// Word frequencies (same logic as server.ts)
+	const freq = new Map<string, number>();
+	for (const { text } of lines) {
+		const words = text.toLowerCase().replace(/[^a-z'-]/g, " ").split(/\s+/);
+		for (const w of words) {
+			if (w.length < 2 || STOP_WORDS.has(w)) continue;
+			freq.set(w, (freq.get(w) ?? 0) + 1);
+		}
+	}
+	const words = [...freq.entries()]
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, 5000)
+		.map(([word, count]) => ({ word, count }));
+
+	const safeName = encodeURIComponent(speaker_name);
+	await Bun.write(
+		`${OUT_DIR}/data/speakers/${safeName}.json`,
+		JSON.stringify({ words, lines: lines.map(l => ({ text: l.text, quest_name: l.quest_name, quest_id: l.quest_id })) })
+	);
+}
+
+db.close();
+
+console.log(`  ${OUT_DIR}/data/speakers.json — ${speakers.length} speakers`);
+console.log(`  ${OUT_DIR}/data/speakers/*.json — per-speaker word + line data`);
+
+// Copy HTML pages
 const htmlSource = await Bun.file("./public/index-static.html").text();
 await Bun.write(`${OUT_DIR}/index.html`, htmlSource);
+const wordcloudSource = await Bun.file("./public/wordcloud-static.html").text();
+await Bun.write(`${OUT_DIR}/wordcloud.html`, wordcloudSource);
 
 // Summary
 const indexSize = new Blob([JSON.stringify(questIndex)]).size;

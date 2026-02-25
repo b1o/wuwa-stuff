@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quest Tree Viewer</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        nav {
+            display: flex;
+            gap: 2px;
+            padding: 6px 12px;
+            background: #0b0d14;
+            border-bottom: 1px solid #1e2030;
+            flex-shrink: 0;
+        }
+        nav a {
+            padding: 5px 14px;
+            border-radius: 5px;
+            font-size: 13px;
+            color: #777;
+            text-decoration: none;
+            transition: all 0.12s;
+        }
+        nav a:hover { background: #1a1c2a; color: #c0c8e0; }
+        nav a.active { background: #1e2540; color: #e0e0e0; }
+
+        #container {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }
+        
+        #tree-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #0f172a;
+        }
+        
+        #resizer {
+            width: 6px;
+            background: #1e2937;
+            cursor: col-resize;
+            flex-shrink: 0;
+            position: relative;
+            transition: background 0.2s;
+        }
+        
+        #resizer:hover,
+        #resizer:active {
+            background: #e94560;
+        }
+        
+        #resizer::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 80px;
+            background: rgba(233, 69, 96, 0.4);
+            border-radius: 2px;
+        }
+        
+        #sidebar {
+            width: 420px;
+            background: #1e2937;
+            border-left: 2px solid #334155;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            box-shadow: -4px 0 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        #sidebar-header {
+            padding: 20px;
+            border-bottom: 2px solid #334155;
+            position: sticky;
+            top: 0;
+            background: #1e2937;
+            z-index: 10;
+        }
+        
+        #sidebar-content {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .node circle {
+            cursor: pointer;
+            stroke-width: 3.5px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
+        }
+        
+        .node circle:hover {
+            stroke-width: 5px;
+            filter: drop-shadow(0 4px 10px rgba(255, 255, 255, 0.25));
+        }
+        
+        .node text {
+            font: 13.5px 'Segoe UI', system-ui, sans-serif;
+            fill: #e2e8f0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.7);
+            pointer-events: none;
+            user-select: none;
+        }
+        
+        .node text.loading-text {
+            fill: #f59e0b !important;
+            font-style: italic;
+        }
+        
+        .node text.translated-label {
+            fill: #34d399 !important;
+            font-weight: 600;
+        }
+        
+        .link {
+            fill: none;
+            stroke: #475569;
+            stroke-width: 2.2px;
+            opacity: 0.65;
+            transition: stroke 0.3s;
+        }
+        
+        .link.highlighted {
+            stroke: #e94560;
+            stroke-width: 3.5px;
+            opacity: 1;
+        }
+        
+        #sidebar h2 {
+            margin: 0;
+            color: #e94560;
+            font-size: 21px;
+            font-weight: 600;
+        }
+        
+        .property-tree {
+            font-family: 'JetBrains Mono', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13.2px;
+            line-height: 1.55;
+        }
+        
+        .property-item {
+            margin: 3px 0;
+        }
+        
+        .property-key {
+            color: #93c5fd;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 6px;
+            border-radius: 4px;
+            transition: background 0.15s;
+        }
+        
+        .property-key:hover {
+            background: rgba(148, 163, 184, 0.12);
+        }
+        
+        .toggle-icon {
+            color: #64748b;
+            font-size: 11px;
+            width: 14px;
+            display: inline-block;
+            transition: transform 0.2s ease;
+        }
+        
+        .toggle-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+        
+        .property-value {
+            margin-left: 22px;
+            padding-left: 12px;
+            border-left: 1px solid #334155;
+        }
+        
+        .property-value.collapsed {
+            display: none;
+        }
+        
+        .value-string { color: #f472b6; }
+        .value-number { color: #86efac; }
+        .value-boolean { color: #60a5fa; font-weight: 600; }
+        .value-null { color: #94a3b8; font-style: italic; }
+        
+        .value-type {
+            color: #67e8f9;
+            font-size: 11px;
+            margin-left: 6px;
+            opacity: 0.75;
+        }
+        
+        .array-index {
+            color: #93c5fd;
+            opacity: 0.65;
+            font-size: 12px;
+        }
+        
+        .type-badge {
+            display: inline-block;
+            padding: 5px 14px;
+            border-radius: 9999px;
+            font-size: 12.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 8px;
+            background: #1e2937;
+            border: 2px solid #e94560;
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(233, 69, 96, 0.3);
+        }
+        
+        .translation-badge {
+            display: inline-block;
+            background: #10b981;
+            color: #fff;
+            padding: 3px 9px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .controls {
+            position: absolute;
+            top: 18px;
+            left: 18px;
+            background: rgba(15, 23, 42, 0.96);
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 240px;
+            backdrop-filter: blur(12px);
+            z-index: 100;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+        }
+        
+        .search-box {
+            display: flex;
+            gap: 8px;
+        }
+        
+        input[type="text"] {
+            background: #1e2937;
+            border: 2px solid #334155;
+            color: #e2e8f0;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 14.5px;
+            width: 100%;
+            transition: border 0.2s;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #e94560;
+            box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.25);
+        }
+        
+        button {
+            background: #e94560;
+            color: #fff;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        
+        button:hover {
+            background: #ff6b6b;
+            transform: translateY(-1px);
+        }
+        
+        button:disabled {
+            background: #475569;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        
+        .control-buttons button {
+            background: #1e2937;
+            border: 1px solid #475569;
+            flex: 1;
+            min-width: 70px;
+            font-size: 12.5px;
+        }
+        
+        .control-buttons button:hover {
+            background: #334155;
+            border-color: #e94560;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #94a3b8;
+            margin-top: 80px;
+            font-style: italic;
+            padding: 30px;
+            font-size: 15px;
+        }
+        
+        .error-message {
+            background: #ef4444;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 13px;
+            display: none;
+            box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
+        }
+        
+        .loading {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            color: #94a3b8;
+            font-size: 13.5px;
+            margin-top: 6px;
+        }
+        
+        .loading.active {
+            display: flex;
+        }
+        
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 3px solid #334155;
+            border-top: 3px solid #e94560;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .status-bar {
+            position: absolute;
+            bottom: 18px;
+            left: 18px;
+            background: rgba(15, 23, 42, 0.96);
+            padding: 9px 18px;
+            border-radius: 6px;
+            border: 1px solid #334155;
+            font-size: 13px;
+            color: #94a3b8;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .breadcrumb {
+            font-size: 12.5px;
+            color: #94a3b8;
+            margin-top: 6px;
+            font-family: monospace;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Quests</a>
+        <a href="/nodes.html" class="active">Quest Tree</a>
+        <a href="/wordcloud.html">Word Cloud</a>
+    </nav>
+    <div id="container">
+        <div id="tree-container">
+            <div class="controls">
+                <div class="search-box">
+                    <input type="text" id="questIdInput" placeholder="Enter Quest ID..." />
+                    <button onclick="loadQuest()" id="loadBtn">Load</button>
+                </div>
+                
+                <div class="loading" id="loadingIndicator">
+                    <div class="spinner"></div>
+                    <span>Loading quest data...</span>
+                </div>
+                
+                <div class="error-message" id="errorMsg"></div>
+                
+                <div class="control-buttons">
+                    <button onclick="expandAll()">Expand All</button>
+                    <button onclick="collapseAll()">Collapse All</button>
+                    <button onclick="resetZoom()">Reset View</button>
+                </div>
+            </div>
+            
+            <div class="status-bar" id="statusBar">
+                Ready — Enter a Quest ID to begin
+            </div>
+        </div>
+        
+        <div id="resizer"></div>
+        
+        <div id="sidebar">
+            <div id="sidebar-header">
+                <h2>Node Details</h2>
+                <div class="breadcrumb" id="nodeBreadcrumb"></div>
+                <div id="typeBadgeContainer"></div>
+            </div>
+            <div id="sidebar-content">
+                <div class="empty-state">Click any node to inspect its properties</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Color mapping
+        const colorMap = {
+            "Sequence": "#22c55e",
+            "ChildQuest": "#3b82f6",
+            "QuestSucceed": "#eab308",
+            "QuestFailed": "#ef4444",
+            "ParallelSelect": "#f97316",
+            "ConditionSelector": "#a855f7",
+            "AlwaysFalse": "#64748b"
+        };
+
+        // Translation cache
+        const translationCache = new Map();
+        const pendingTranslations = new Set();
+
+        const treeContainer = document.getElementById('tree-container');
+        const sidebarEl = document.getElementById('sidebar');
+        const resizer = document.getElementById('resizer');
+
+        let width = treeContainer.clientWidth;
+        let height = treeContainer.clientHeight;
+        const margin = { top: 40, right: 60, bottom: 40, left: 40 };
+        
+        const svg = d3.select("#tree-container").append("svg")
+            .attr("width", width)
+            .attr("height", height);
+            
+        const g = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+        const zoom = d3.zoom()
+            .scaleExtent([0.08, 4])
+            .on("zoom", (event) => g.attr("transform", event.transform));
+            
+        svg.call(zoom);
+
+        let treeLayout = d3.tree().size([height - margin.top - margin.bottom, width - margin.left - margin.right]);
+        
+        let root = null;
+        let currentQuestId = null;
+        let i = 0;
+
+        function buildHierarchy(data) {
+            const rootNode = { Id: 0, children: [] };
+            const map = { 0: rootNode };
+            data.forEach(d => map[d.Id] = { ...d, children: [] });
+            data.forEach(d => {
+                const parent = map[d.ParentNodeId];
+                if (parent) parent.children.push(map[d.Id]);
+            });
+            return rootNode.children[0] || rootNode;
+        }
+
+        function getAllNodes(d) {
+            const nodes = [];
+            function recurse(node) {
+                nodes.push(node);
+                if (node.children) node.children.forEach(recurse);
+                if (node._children) node._children.forEach(recurse);
+            }
+            recurse(d);
+            return nodes;
+        }
+
+        async function translateText(text) {
+            if (typeof text !== 'string' || !text.trim()) return null;
+            if (translationCache.has(text)) return translationCache.get(text);
+            if (pendingTranslations.has(text)) return null;
+
+            pendingTranslations.add(text);
+            try {
+                const response = await fetch(`/api/translate/${encodeURIComponent(text)}`);
+                if (!response.ok) throw new Error('Translation unavailable');
+                const result = await response.json();
+                const translated = result.text || result.translation || result;
+                if (translated && typeof translated === 'string') {
+                    translationCache.set(text, translated);
+                    return translated;
+                }
+                return null;
+            } catch (e) {
+                console.warn(`Translation failed for "${text}"`);
+                return null;
+            } finally {
+                pendingTranslations.delete(text);
+            }
+        }
+
+        async function processNodeTranslations(nodes) {
+            const toTranslate = nodes.filter(n => 
+                typeof n.data.TidTip === 'string' && 
+                n.data.TidTip.trim() && 
+                !n.data._translatedTip
+            );
+
+            if (toTranslate.length === 0) return;
+
+            const promises = toTranslate.map(node =>
+                translateText(node.data.TidTip).then(translated => {
+                    if (translated) node.data._translatedTip = translated;
+                })
+            );
+
+            await Promise.all(promises);
+            if (root) update(root);
+        }
+
+        async function loadQuest() {
+            const questId = document.getElementById('questIdInput').value.trim();
+            const loadBtn = document.getElementById('loadBtn');
+            const loading = document.getElementById('loadingIndicator');
+            const errorMsg = document.getElementById('errorMsg');
+            const statusBar = document.getElementById('statusBar');
+            
+            if (!questId) {
+                showError('Please enter a Quest ID');
+                return;
+            }
+            
+            currentQuestId = questId;
+            translationCache.clear();
+            pendingTranslations.clear();
+            
+            loadBtn.disabled = true;
+            loading.classList.add('active');
+            errorMsg.style.display = 'none';
+            statusBar.textContent = `Loading Quest ${questId}...`;
+            statusBar.style.color = '#94a3b8';
+            
+            try {
+                const response = await fetch(`/api/quests/${questId}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const result = await response.json();
+                if (!result.raw || !Array.isArray(result.raw) || result.raw.length === 0) {
+                    throw new Error('Invalid or empty quest data');
+                }
+                
+                const questData = result.raw;
+                
+                g.selectAll("*").remove();
+                i = 0;
+                
+                const hierarchyData = buildHierarchy(questData);
+                root = d3.hierarchy(hierarchyData);
+                
+                if (root.children && root.children.length > 4) {
+                    root.children.forEach(collapse);
+                }
+                
+                update(root);
+                
+                const allNodes = getAllNodes(root);
+                const tidTipCount = allNodes.filter(n => typeof n.data.TidTip === 'string' && n.data.TidTip.trim()).length;
+                
+                if (tidTipCount > 0) {
+                    statusBar.textContent = `Quest ${questId} loaded — Translating ${tidTipCount} entries...`;
+                    await processNodeTranslations(allNodes);
+                }
+                
+                statusBar.innerHTML = `Quest <strong>${questId}</strong> loaded — ${questData.length} nodes`;
+                statusBar.style.color = '#34d399';
+                
+                showEmptyState();
+                
+            } catch (error) {
+                console.error(error);
+                showError(`Failed to load quest: ${error.message}`);
+                statusBar.textContent = 'Load failed';
+                statusBar.style.color = '#ef4444';
+            } finally {
+                loadBtn.disabled = false;
+                loading.classList.remove('active');
+            }
+        }
+        
+        function showError(message) {
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+            setTimeout(() => errorMsg.style.display = 'none', 5200);
+        }
+        
+        function showEmptyState() {
+            document.getElementById('sidebar-content').innerHTML = 
+                '<div class="empty-state">Click any node to inspect its properties</div>';
+            document.getElementById('nodeBreadcrumb').textContent = '';
+            document.getElementById('typeBadgeContainer').innerHTML = '';
+        }
+
+        function collapse(d) {
+            if (d.children) {
+                d._children = d.children;
+                d._children.forEach(collapse);
+                d.children = null;
+            }
+        }
+        
+        function getNodeDisplayText(d) {
+            let text = d.data._translatedTip || d.data.TidTip || d.data.Desc || d.data.Type || `Node ${d.data.Id}`;
+            if (typeof text !== 'string') {
+                text = d.data.Type || `Node ${d.data.Id}`;
+            }
+            return text;
+        }
+        
+        function update(source) {
+            if (!root) return;
+            
+            treeLayout.size([
+                (height - margin.top - margin.bottom) * 2.1,   // much more vertical space
+                width - margin.left - margin.right
+            ]);
+            
+            const treeData = treeLayout(root);
+            const nodes = treeData.descendants();
+            const links = treeData.links();
+            
+            // Fixed generous horizontal spacing per level
+            nodes.forEach(d => { d.y = d.depth * 195; });
+            
+            const node = g.selectAll('g.node')
+                .data(nodes, d => d.id || (d.id = ++i));
+                
+            const nodeEnter = node.enter().append('g')
+                .attr('class', 'node')
+                .attr("transform", d => `translate(${source.y0 || 0},${source.x0 || 0})`)
+                .on('click', click);
+                
+            nodeEnter.append('circle')
+                .attr('r', 1e-6)
+                .style("fill", d => d._children ? colorMap[d.data.Type] || "#64748b" : "#0f172a")
+                .style("stroke", d => colorMap[d.data.Type] || "#64748b");
+                
+            nodeEnter.append('text')
+                .attr("dy", ".35em")
+                .attr("x", d => d.children || d._children ? -16 : 16)
+                .attr("text-anchor", d => d.children || d._children ? "end" : "start")
+                .text(d => {
+                    const t = getNodeDisplayText(d);
+                    return t.length > 30 ? t.substring(0, 30) + '…' : t;
+                })
+                .style("fill-opacity", 1e-6)
+                .attr("class", d => d.data._translatedTip ? "translated-label" : (d.data.TidTip ? "loading-text" : ""));
+                
+            nodeEnter.append('title').text(d => getNodeDisplayText(d));
+                
+            const nodeUpdate = node.merge(nodeEnter).transition().duration(680)
+                .attr("transform", d => `translate(${d.y},${d.x})`);
+                
+            nodeUpdate.select('circle')
+                .attr('r', d => d.data.Type === 'Sequence' ? 9 : 11.5)
+                .style("fill", d => d._children ? colorMap[d.data.Type] || "#64748b" : "#0f172a")
+                .style("stroke", d => colorMap[d.data.Type] || "#64748b");
+            
+            nodeUpdate.select('text')
+                .text(d => {
+                    const t = getNodeDisplayText(d);
+                    return t.length > 30 ? t.substring(0, 30) + '…' : t;
+                })
+                .style("fill-opacity", 1)
+                .attr("class", d => d.data._translatedTip ? "translated-label" : (d.data.TidTip && !d.data._translatedTip ? "loading-text" : ""));
+                
+            nodeUpdate.select('title').text(d => getNodeDisplayText(d));
+                
+            node.exit().transition().duration(680)
+                .attr("transform", d => `translate(${source.y},${source.x})`)
+                .remove();
+                
+            const link = g.selectAll('path.link').data(links, d => d.target.id);
+                
+            link.enter().insert('path', "g")
+                .attr("class", "link")
+                .attr('d', d => {
+                    const o = {x: source.x0, y: source.y0};
+                    return diagonal(o, o);
+                })
+                .merge(link)
+                .transition().duration(680)
+                .attr('d', d => diagonal(d.source, d.target));
+                
+            link.exit().transition().duration(680)
+                .attr('d', d => {
+                    const o = {x: source.x, y: source.y};
+                    return diagonal(o, o);
+                })
+                .remove();
+                
+            nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+        }
+        
+        function diagonal(s, d) {
+            return `M ${s.y} ${s.x}
+                    C ${(s.y + d.y) / 2} ${s.x},
+                      ${(s.y + d.y) / 2} ${d.x},
+                      ${d.y} ${d.x}`;
+        }
+        
+        function click(event, d) {
+            showDetails(d.data, d);
+            
+            if (d.children) {
+                d._children = d.children;
+                d.children = null;
+            } else if (d._children) {
+                d.children = d._children;
+                d._children = null;
+            }
+            update(d);
+            highlightPath(d);
+        }
+        
+        function showDetails(data, node) {
+            const sidebarContent = document.getElementById('sidebar-content');
+            const breadcrumb = document.getElementById('nodeBreadcrumb');
+            const badgeContainer = document.getElementById('typeBadgeContainer');
+            
+            const path = [];
+            let current = node;
+            while (current) {
+                path.unshift(current.data.Id);
+                current = current.parent;
+            }
+            breadcrumb.textContent = `Path: ${path.join(' → ')}`;
+            
+            const color = colorMap[data.Type] || "#64748b";
+            badgeContainer.innerHTML = `
+                <span class="type-badge" style="background: ${color}; border-color: ${color};">
+                    ${data.Type || 'Unknown'}
+                </span>
+                <span style="color:#94a3b8; font-size:13px; margin-left:12px;">ID: ${data.Id}</span>
+                ${data._translatedTip ? '<span class="translation-badge">✓ TRANSLATED</span>' : ''}
+            `;
+            
+            sidebarContent.innerHTML = '<div class="property-tree" id="propTree"></div>';
+            const treeContainerEl = document.getElementById('propTree');
+            renderValue(treeContainerEl, data, '', true);
+        }
+        
+        function renderValue(container, value, key, isRoot = false) {
+            const type = getValueType(value);
+            
+            if (type === 'object' && value !== null) {
+                renderObject(container, value, key, isRoot);
+            } else if (type === 'array') {
+                renderArray(container, value, key, isRoot);
+            } else {
+                renderPrimitive(container, value, key, type, isRoot);
+            }
+        }
+        
+        function renderObject(container, obj, key, isRoot) {
+            const item = document.createElement('div');
+            item.className = 'property-item';
+            
+            const isExpandable = Object.keys(obj).length > 0;
+            const toggleHTML = isExpandable ? '<span class="toggle-icon">▼</span>' : '<span style="width:14px"></span>';
+            
+            item.innerHTML = isRoot ? '' : `<span class="property-key" onclick="toggleCollapse(this)">${toggleHTML}${key}</span>`;
+            
+            const valueDiv = document.createElement('div');
+            valueDiv.className = 'property-value';
+            
+            Object.entries(obj).forEach(([propKey, propValue]) => {
+                if (propKey === 'children' || propKey === 'ParentNodeId' || propKey === 'parent' || propKey.startsWith('_')) return;
+                
+                // Show translated TidTip (user only cares about the translation)
+                if (propKey === 'TidTip' && obj._translatedTip) {
+                    renderPrimitive(valueDiv, obj._translatedTip, propKey, 'string', false);
+                    return;
+                }
+                
+                renderValue(valueDiv, propValue, propKey);
+            });
+            
+            item.appendChild(valueDiv);
+            container.appendChild(item);
+        }
+        
+        function renderArray(container, arr, key, isRoot) {
+            const item = document.createElement('div');
+            item.className = 'property-item';
+            
+            const toggle = arr.length ? '<span class="toggle-icon">▼</span>' : '<span style="width:14px"></span>';
+            item.innerHTML = `
+                <span class="property-key" onclick="toggleCollapse(this)">
+                    ${toggle}${key}<span class="value-type">[${arr.length}]</span>
+                </span>
+            `;
+            
+            const valueDiv = document.createElement('div');
+            valueDiv.className = 'property-value';
+            
+            arr.forEach((itemValue, index) => {
+                const idxDiv = document.createElement('div');
+                idxDiv.className = 'property-item';
+                idxDiv.innerHTML = `<span class="array-index">[${index}]</span>`;
+                
+                const content = document.createElement('div');
+                content.style.marginLeft = '22px';
+                renderValue(content, itemValue, '');
+                idxDiv.appendChild(content);
+                valueDiv.appendChild(idxDiv);
+            });
+            
+            item.appendChild(valueDiv);
+            container.appendChild(item);
+        }
+        
+        function renderPrimitive(container, value, key, type, isRoot) {
+            const item = document.createElement('div');
+            item.className = 'property-item';
+            
+            let displayValue = type === 'string' ? `"${value}"` : (value === null ? 'null' : String(value));
+            let valueClass = `value-${type}`;
+            
+            if (isRoot) {
+                item.innerHTML = `<span class="${valueClass}">${displayValue}</span>`;
+            } else {
+                item.innerHTML = `
+                    <div style="display:flex; align-items:baseline; gap:8px;">
+                        <span class="property-key" style="min-width:110px;">${key}</span>
+                        <span class="${valueClass}">${displayValue}</span>
+                    </div>
+                `;
+            }
+            container.appendChild(item);
+        }
+        
+        function getValueType(value) {
+            if (value === null) return 'null';
+            if (Array.isArray(value)) return 'array';
+            return typeof value;
+        }
+        
+        window.toggleCollapse = function(element) {
+            const icon = element.querySelector('.toggle-icon');
+            const valueDiv = element.nextElementSibling;
+            if (icon && valueDiv) {
+                icon.classList.toggle('collapsed');
+                valueDiv.classList.toggle('collapsed');
+            }
+        };
+        
+        function highlightPath(d) {
+            d3.selectAll('.link').classed('highlighted', false);
+            let current = d;
+            while (current.parent) {
+                d3.selectAll('.link')
+                    .filter(l => l.target === current)
+                    .classed('highlighted', true);
+                current = current.parent;
+            }
+        }
+        
+        function expandAll() {
+            if (!root) return;
+            function expand(d) {
+                if (d._children) { d.children = d._children; d._children = null; }
+                if (d.children) d.children.forEach(expand);
+            }
+            expand(root);
+            update(root);
+        }
+        
+        function collapseAll() {
+            if (!root) return;
+            function collapseRecursive(d) {
+                if (d.children) {
+                    d._children = d.children;
+                    d._children.forEach(collapseRecursive);
+                    d.children = null;
+                }
+            }
+            if (root.children) root.children.forEach(collapseRecursive);
+            update(root);
+        }
+        
+        function resetZoom() {
+            svg.transition().duration(750).call(
+                zoom.transform,
+                d3.zoomIdentity.translate(margin.left, margin.top).scale(1)
+            );
+        }
+        
+        function updateDimensions() {
+            width = treeContainer.clientWidth;
+            height = treeContainer.clientHeight;
+            svg.attr("width", width).attr("height", height);
+            if (root) update(root);
+        }
+        
+        // Resizable sidebar — fixed direction (drag right = wider sidebar)
+        let isResizing = false;
+        let startX, startWidth;
+        
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startWidth = sidebarEl.getBoundingClientRect().width;
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+            e.preventDefault();
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const deltaX = e.clientX - startX;
+            let newWidth = startWidth + deltaX;   // + = drag right expands sidebar
+            sidebarEl.style.width = newWidth + 'px';
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                document.body.style.cursor = 'default';
+                document.body.style.userSelect = '';
+                updateDimensions();
+            }
+        });
+        
+        window.addEventListener('resize', updateDimensions);
+        
+        document.getElementById('questIdInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadQuest();
+        });
+    </script>
+</body>
+</html>

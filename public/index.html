@@ -1,247 +1,683 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Wuwa Quest Viewer</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, sans-serif; background: #0f1117; color: #e0e0e0; height: 100vh; display: flex; }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Wuwa Quest Viewer</title>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+			body {
+				font-family:
+					system-ui,
+					-apple-system,
+					sans-serif;
+				background: #0f1117;
+				color: #e0e0e0;
+				height: 100vh;
+				display: flex;
+			}
 
-  /* Sidebar */
-  .sidebar { width: 380px; min-width: 380px; border-right: 1px solid #1e2030; display: flex; flex-direction: column; background: #13151f; }
-  .search-bar { padding: 12px; border-bottom: 1px solid #1e2030; display: flex; flex-direction: column; gap: 8px; }
-  .search-bar input { width: 100%; padding: 8px 12px; border: 1px solid #2a2d3e; border-radius: 6px; background: #1a1c2a; color: #e0e0e0; font-size: 14px; outline: none; }
-  .search-bar input:focus { border-color: #5b6eea; }
-  .search-bar select { width: 100%; padding: 8px 12px; border: 1px solid #2a2d3e; border-radius: 6px; background: #1a1c2a; color: #e0e0e0; font-size: 13px; outline: none; }
-  .search-meta { font-size: 12px; color: #666; padding: 0 2px; }
+			/* Sidebar */
+			.sidebar {
+				width: 380px;
+				min-width: 380px;
+				border-right: 1px solid #1e2030;
+				display: flex;
+				flex-direction: column;
+				background: #13151f;
+			}
+			.search-bar {
+				padding: 12px;
+				border-bottom: 1px solid #1e2030;
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+			}
+			.search-bar input {
+				width: 100%;
+				padding: 8px 12px;
+				border: 1px solid #2a2d3e;
+				border-radius: 6px;
+				background: #1a1c2a;
+				color: #e0e0e0;
+				font-size: 14px;
+				outline: none;
+			}
+			.search-bar input:focus {
+				border-color: #5b6eea;
+			}
+			.search-bar select {
+				width: 100%;
+				padding: 8px 12px;
+				border: 1px solid #2a2d3e;
+				border-radius: 6px;
+				background: #1a1c2a;
+				color: #e0e0e0;
+				font-size: 13px;
+				outline: none;
+			}
+			.search-meta {
+				font-size: 12px;
+				color: #666;
+				padding: 0 2px;
+			}
 
-  .quest-list { flex: 1; overflow-y: auto; }
-  .quest-item { padding: 10px 14px; border-bottom: 1px solid #1a1c2a; cursor: pointer; transition: background 0.1s; }
-  .quest-item:hover { background: #1a1e2e; }
-  .quest-item.active { background: #1e2540; border-left: 3px solid #5b6eea; }
-  .quest-item .q-name { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
-  .quest-item .q-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 3px; }
-  .quest-item .q-pill { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
-  .quest-item .q-type { background: #222540; color: #8890b5; }
-  .quest-item .q-chapter { background: #1e2a22; color: #7bb88a; }
-  .quest-item .q-act { background: #2a2420; color: #b8a07b; }
-  .quest-item .q-id { font-size: 10px; color: #555; }
+			.quest-list {
+				flex: 1;
+				overflow-y: auto;
+			}
+			.quest-item {
+				padding: 10px 14px;
+				border-bottom: 1px solid #1a1c2a;
+				cursor: pointer;
+				transition: background 0.1s;
+			}
+			.quest-item:hover {
+				background: #1a1e2e;
+			}
+			.quest-item.active {
+				background: #1e2540;
+				border-left: 3px solid #5b6eea;
+			}
+			.quest-item .q-name {
+				font-size: 14px;
+				font-weight: 500;
+				margin-bottom: 4px;
+			}
+			.quest-item .q-pills {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 4px;
+				margin-bottom: 3px;
+			}
+			.quest-item .q-pill {
+				display: inline-block;
+				padding: 1px 6px;
+				border-radius: 3px;
+				font-size: 10px;
+				line-height: 16px;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				max-width: 180px;
+			}
+			.quest-item .q-type {
+				background: #222540;
+				color: #8890b5;
+			}
+			.quest-item .q-chapter {
+				background: #1e2a22;
+				color: #7bb88a;
+			}
+			.quest-item .q-act {
+				background: #2a2420;
+				color: #b8a07b;
+			}
+			.quest-item .q-id {
+				font-size: 10px;
+				color: #555;
+			}
 
-  .load-more { padding: 12px; text-align: center; }
-  .load-more button { padding: 6px 20px; border: 1px solid #2a2d3e; border-radius: 6px; background: #1a1c2a; color: #aaa; cursor: pointer; font-size: 13px; }
-  .load-more button:hover { background: #222540; }
+			.load-more {
+				padding: 12px;
+				text-align: center;
+			}
+			.load-more button {
+				padding: 6px 20px;
+				border: 1px solid #2a2d3e;
+				border-radius: 6px;
+				background: #1a1c2a;
+				color: #aaa;
+				cursor: pointer;
+				font-size: 13px;
+			}
+			.load-more button:hover {
+				background: #222540;
+			}
 
-  /* Main content */
-  .main { flex: 1; overflow-y: auto; padding: 24px 32px; }
-  .empty-state { display: flex; align-items: center; justify-content: center; height: 100%; color: #555; font-size: 15px; }
+			/* Main content */
+			.main {
+				flex: 1;
+				overflow-y: auto;
+				padding: 24px 32px;
+			}
+			.empty-state {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				height: 100%;
+				color: #555;
+				font-size: 15px;
+			}
 
-  .quest-header { margin-bottom: 24px; }
-  .quest-header h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; color: #f0f0f0; }
-  .quest-header .q-desc { font-size: 14px; color: #999; margin-bottom: 10px; line-height: 1.5; }
-  .quest-header .q-info { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: #777; }
-  .quest-header .q-info span { background: #1a1c2a; padding: 4px 10px; border-radius: 4px; }
+			.quest-header {
+				margin-bottom: 24px;
+			}
+			.quest-header h1 {
+				font-size: 22px;
+				font-weight: 600;
+				margin-bottom: 6px;
+				color: #f0f0f0;
+			}
+			.quest-header .q-desc {
+				font-size: 14px;
+				color: #999;
+				margin-bottom: 10px;
+				line-height: 1.5;
+			}
+			.quest-header .q-info {
+				display: flex;
+				gap: 12px;
+				flex-wrap: wrap;
+				font-size: 12px;
+				color: #777;
+			}
+			.quest-header .q-info span {
+				background: #1a1c2a;
+				padding: 4px 10px;
+				border-radius: 4px;
+			}
 
-  /* Dialog */
-  .dialog-section { margin-top: 20px; }
-  .dialog-section h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #c0c8e0; border-bottom: 1px solid #1e2030; padding-bottom: 8px; }
+			/* Dialog */
+			.dialog-section {
+				margin-top: 20px;
+			}
+			.dialog-section h2 {
+				font-size: 16px;
+				font-weight: 600;
+				margin-bottom: 16px;
+				color: #c0c8e0;
+				border-bottom: 1px solid #1e2030;
+				padding-bottom: 8px;
+			}
 
-  .dialog-group { margin-bottom: 24px; }
-  .dialog-group-label { font-size: 13px; font-weight: 600; color: #7b88b8; margin-bottom: 10px; padding: 6px 10px; background: #161825; border-radius: 6px; border-left: 3px solid #3d4a8a; }
+			.dialog-group {
+				margin-bottom: 24px;
+			}
+			.dialog-group-label {
+				font-size: 13px;
+				font-weight: 600;
+				color: #7b88b8;
+				margin-bottom: 10px;
+				padding: 6px 10px;
+				background: #161825;
+				border-radius: 6px;
+				border-left: 3px solid #3d4a8a;
+			}
 
-  .dialog-line { display: flex; gap: 10px; margin-bottom: 6px; padding: 6px 10px; border-radius: 6px; }
-  .dialog-line:hover { background: #161825; }
-  .dialog-speaker { font-weight: 600; color: #8b9ad8; min-width: 120px; flex-shrink: 0; font-size: 13px; padding-top: 1px; }
-  .dialog-text { font-size: 14px; line-height: 1.5; color: #d0d0d0; }
+			.dialog-line {
+				display: flex;
+				gap: 10px;
+				margin-bottom: 6px;
+				padding: 6px 10px;
+				border-radius: 6px;
+			}
+			.dialog-line:hover {
+				background: #161825;
+			}
+			.dialog-speaker {
+				font-weight: 600;
+				color: #8b9ad8;
+				min-width: 120px;
+				flex-shrink: 0;
+				font-size: 13px;
+				padding-top: 1px;
+			}
+			.dialog-text {
+				font-size: 14px;
+				line-height: 1.5;
+				color: #d0d0d0;
+			}
+      .dialog-id {
+        font-size: 10px;
+        color: #555;
+        flex-shrink: 0;
+        padding-top: 1px;
+      }
 
-  .dialog-options { margin: 4px 0 8px 130px; }
-  .dialog-option { font-size: 13px; color: #a0a8c8; padding: 4px 10px; margin-bottom: 3px; border-left: 2px solid #3d4a8a; background: #13151f; border-radius: 0 4px 4px 0; }
+			.dialog-options {
+				margin: 4px 0 8px 130px;
+			}
 
-  .dialog-center-text { text-align: center; font-style: italic; color: #9a8ec0; padding: 10px 20px; margin: 8px 0; border-top: 1px solid #1e2030; border-bottom: 1px solid #1e2030; font-size: 14px; }
-  .dialog-cutscene { display: flex; align-items: center; gap: 8px; padding: 8px 14px; margin: 8px 0; background: #1a1525; border: 1px solid #2a2540; border-radius: 6px; color: #b0a0d0; font-size: 13px; }
-  .dialog-cutscene-icon { font-size: 16px; }
-  .dialog-narration { padding: 6px 10px; margin-bottom: 6px; color: #a0a0a0; font-style: italic; font-size: 14px; }
+      .dialog-option-jump {
+        font-size: 10px;
+        color: #555;
+        margin-left: 6px;
+      }
 
-  .no-dialog { color: #555; font-style: italic; font-size: 14px; padding: 20px 0; }
+			.dialog-option {
+				font-size: 13px;
+				color: #a0a8c8;
+				padding: 4px 10px;
+				margin-bottom: 3px;
+				border-left: 2px solid #3d4a8a;
+				background: #13151f;
+				border-radius: 0 4px 4px 0;
+			}
 
-  .quest-chain { display: flex; align-items: stretch; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-  .quest-chain-group { display: flex; flex-direction: column; gap: 4px; }
-  .quest-chain-group-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 0.5px; }
-  .quest-chain-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 6px; background: #1a1c2a; border: 1px solid #2a2d3e; border-left: 3px solid #2a2d3e; color: #8890b5; font-size: 13px; cursor: pointer; text-decoration: none; transition: all 0.15s; }
-  .quest-chain-btn:hover { background: #222540; color: #c0c8e0; }
-  .quest-chain-btn[data-qtype="Main Quests"] { border-left-color: #d4a44a; }
-  .quest-chain-btn[data-qtype="Main Quests"]:hover { border-color: #d4a44a; }
-  .quest-chain-btn[data-qtype="Side Quests"] { border-left-color: #5b6eea; }
-  .quest-chain-btn[data-qtype="Side Quests"]:hover { border-color: #5b6eea; }
-  .quest-chain-btn[data-qtype="Companion Quests"] { border-left-color: #e06090; }
-  .quest-chain-btn[data-qtype="Companion Quests"]:hover { border-color: #e06090; }
-  .quest-chain-btn[data-qtype="Exploration"] { border-left-color: #50b080; }
-  .quest-chain-btn[data-qtype="Exploration"]:hover { border-color: #50b080; }
-  .quest-chain-type { font-size: 10px; opacity: 0.6; }
-  .quest-chain-arrow { font-size: 14px; }
+			.dialog-center-text {
+				text-align: center;
+				font-style: italic;
+				color: #9a8ec0;
+				padding: 10px 20px;
+				margin: 8px 0;
+				border-top: 1px solid #1e2030;
+				border-bottom: 1px solid #1e2030;
+				font-size: 14px;
+			}
+			.dialog-cutscene {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				padding: 8px 14px;
+				margin: 8px 0;
+				background: #1a1525;
+				border: 1px solid #2a2540;
+				border-radius: 6px;
+				color: #b0a0d0;
+				font-size: 13px;
+			}
+			.dialog-cutscene-icon {
+				font-size: 16px;
+			}
+			.dialog-narration {
+				padding: 6px 10px;
+				margin-bottom: 6px;
+				color: #a0a0a0;
+				font-style: italic;
+				font-size: 14px;
+			}
 
-  /* Credit banner */
-  .credit-banner { padding: 8px 12px; border-top: 1px solid #1e2030; font-size: 11px; color: #555; text-align: center; flex-shrink: 0; }
-  .credit-banner a { color: #7080b8; text-decoration: none; }
-  .credit-banner a:hover { color: #a0b0e0; text-decoration: underline; }
+			.dialog-branch {
+				margin: 4px 0 4px 0;
+			}
+			.dialog-branch details {
+				margin: 0;
+			}
+			.dialog-branch summary {
+				font-size: 13px;
+				font-weight: 600;
+				color: #a0a8c8;
+				padding: 6px 10px;
+				margin: 4px 0;
+				background: #161825;
+				border-radius: 4px;
+				cursor: pointer;
+				list-style: none;
+				user-select: none;
+			}
+			.dialog-branch summary::-webkit-details-marker {
+				display: none;
+			}
+			.dialog-branch summary::before {
+				content: "\25B6 ";
+				font-size: 10px;
+				color: #5b6eea;
+				display: inline-block;
+				transition: transform 0.15s;
+			}
+			.dialog-branch details[open] > summary::before {
+				transform: rotate(90deg);
+			}
+			.dialog-branch summary:hover {
+				background: #1a1e2e;
+			}
+			.dialog-branch-content {
+				margin-left: 16px;
+				border-left: 2px solid #3d4a8a;
+				padding-left: 12px;
+			}
 
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #2a2d3e; border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: #3a3d5e; }
-</style>
-</head>
-<body>
+			/* Objectives */
+			.objectives-section {
+				margin-top: 20px;
+				margin-bottom: 8px;
+			}
+			.objectives-section h2 {
+				font-size: 16px;
+				font-weight: 600;
+				margin-bottom: 12px;
+				color: #c0c8e0;
+				border-bottom: 1px solid #1e2030;
+				padding-bottom: 8px;
+			}
+			.objective-item {
+				display: flex;
+				align-items: baseline;
+				gap: 10px;
+				padding: 6px 10px;
+				border-radius: 6px;
+				margin-bottom: 2px;
+			}
+			.objective-item:hover {
+				background: #161825;
+			}
+			.objective-num {
+				font-size: 11px;
+				color: #555;
+				min-width: 20px;
+				text-align: right;
+				flex-shrink: 0;
+			}
+			.objective-text {
+				font-size: 14px;
+				color: #d0d0d0;
+				line-height: 1.5;
+			}
+			.objective-type {
+				font-size: 10px;
+				color: #666;
+				background: #1a1c2a;
+				padding: 2px 6px;
+				border-radius: 3px;
+				flex-shrink: 0;
+			}
 
-<div class="sidebar">
-  <div class="search-bar">
-    <input type="text" id="searchInput" placeholder="Search quests by name..." autofocus>
-    <select id="typeFilter"><option value="">All types</option></select>
-    <div class="search-meta" id="searchMeta"></div>
-  </div>
-  <div class="quest-list" id="questList"></div>
-  <div class="load-more" id="loadMore" style="display:none">
-    <button onclick="loadNextPage()">Load more</button>
-  </div>
-  <div class="credit-banner">Data from <a href="https://github.com/Dimbreath/WutheringData" target="_blank" rel="noopener">Dimbreath/WutheringData</a></div>
-</div>
+			.no-dialog {
+				color: #555;
+				font-style: italic;
+				font-size: 14px;
+				padding: 20px 0;
+			}
 
-<div class="main" id="mainContent">
-  <div class="empty-state">Search for a quest to view its details and dialog</div>
-</div>
+			.quest-chain {
+				display: flex;
+				align-items: stretch;
+				gap: 8px;
+				margin-bottom: 16px;
+				flex-wrap: wrap;
+			}
+			.quest-chain-group {
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+			}
+			.quest-chain-group-label {
+				font-size: 10px;
+				color: #555;
+				text-transform: uppercase;
+				letter-spacing: 0.5px;
+			}
+			.quest-chain-btn {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				padding: 6px 12px;
+				border-radius: 6px;
+				background: #1a1c2a;
+				border: 1px solid #2a2d3e;
+				border-left: 3px solid #2a2d3e;
+				color: #8890b5;
+				font-size: 13px;
+				cursor: pointer;
+				text-decoration: none;
+				transition: all 0.15s;
+			}
+			.quest-chain-btn:hover {
+				background: #222540;
+				color: #c0c8e0;
+			}
+			.quest-chain-btn[data-qtype="Main Quests"] {
+				border-left-color: #d4a44a;
+			}
+			.quest-chain-btn[data-qtype="Main Quests"]:hover {
+				border-color: #d4a44a;
+			}
+			.quest-chain-btn[data-qtype="Side Quests"] {
+				border-left-color: #5b6eea;
+			}
+			.quest-chain-btn[data-qtype="Side Quests"]:hover {
+				border-color: #5b6eea;
+			}
+			.quest-chain-btn[data-qtype="Companion Quests"] {
+				border-left-color: #e06090;
+			}
+			.quest-chain-btn[data-qtype="Companion Quests"]:hover {
+				border-color: #e06090;
+			}
+			.quest-chain-btn[data-qtype="Exploration"] {
+				border-left-color: #50b080;
+			}
+			.quest-chain-btn[data-qtype="Exploration"]:hover {
+				border-color: #50b080;
+			}
+			.quest-chain-type {
+				font-size: 10px;
+				opacity: 0.6;
+			}
+			.quest-chain-arrow {
+				font-size: 14px;
+			}
 
-<script>
-let currentPage = 1;
-let currentTotal = 0;
-let currentQuery = '';
-let currentType = '';
-let activeQuestId = null;
-let debounceTimer = null;
+			/* Credit banner */
+			.credit-banner {
+				padding: 8px 12px;
+				border-top: 1px solid #1e2030;
+				font-size: 11px;
+				color: #555;
+				text-align: center;
+				flex-shrink: 0;
+			}
+			.credit-banner a {
+				color: #7080b8;
+				text-decoration: none;
+			}
+			.credit-banner a:hover {
+				color: #a0b0e0;
+				text-decoration: underline;
+			}
 
-const searchInput = document.getElementById('searchInput');
-const typeFilter = document.getElementById('typeFilter');
-const questList = document.getElementById('questList');
-const loadMoreDiv = document.getElementById('loadMore');
-const searchMeta = document.getElementById('searchMeta');
-const mainContent = document.getElementById('mainContent');
+			/* Scrollbar */
+			::-webkit-scrollbar {
+				width: 6px;
+			}
+			::-webkit-scrollbar-track {
+				background: transparent;
+			}
+			::-webkit-scrollbar-thumb {
+				background: #2a2d3e;
+				border-radius: 3px;
+			}
+			::-webkit-scrollbar-thumb:hover {
+				background: #3a3d5e;
+			}
+		nav {
+			display: flex;
+			gap: 2px;
+			padding: 6px 12px;
+			background: #0b0d14;
+			border-bottom: 1px solid #1e2030;
+			flex-shrink: 0;
+		}
+		nav a {
+			padding: 5px 14px;
+			border-radius: 5px;
+			font-size: 13px;
+			color: #777;
+			text-decoration: none;
+			transition: all 0.12s;
+		}
+		nav a:hover { background: #1a1c2a; color: #c0c8e0; }
+		nav a.active { background: #1e2540; color: #e0e0e0; }
+		</style>
+	</head>
+	<body style="flex-direction:column">
+		<nav>
+			<a href="/" class="active">Quests</a>
+			<a href="/nodes.html">Quest Tree</a>
+			<a href="/wordcloud.html">Word Cloud</a>
+		</nav>
+		<div style="display:flex;flex:1;min-height:0">
+		<div class="sidebar">
+			<div class="search-bar">
+				<input type="text" id="searchInput" placeholder="Search quests by name..." autofocus />
+				<select id="typeFilter">
+					<option value="">All types</option>
+				</select>
+				<div class="search-meta" id="searchMeta"></div>
+			</div>
+			<div class="quest-list" id="questList"></div>
+			<div class="load-more" id="loadMore" style="display: none">
+				<button onclick="loadNextPage()">Load more</button>
+			</div>
+			<div class="credit-banner">
+				Data from
+				<a href="https://github.com/Dimbreath/WutheringData" target="_blank" rel="noopener">Dimbreath/WutheringData</a>
+			</div>
+		</div>
 
-// Load quest types
-fetch('/api/quest-types')
-  .then(r => r.json())
-  .then(types => {
-    for (const t of types) {
-      const opt = document.createElement('option');
-      opt.value = t;
-      opt.textContent = t;
-      typeFilter.appendChild(opt);
-    }
-  });
+		<div class="main" id="mainContent">
+			<div class="empty-state">Search for a quest to view its details and dialog</div>
+		</div>
 
-searchInput.addEventListener('input', () => {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => { currentPage = 1; searchQuests(); }, 200);
-});
+		<script>
+			let currentPage = 1;
+			let currentTotal = 0;
+			let currentQuery = "";
+			let currentType = "";
+			let activeQuestId = null;
+			let debounceTimer = null;
 
-typeFilter.addEventListener('change', () => { currentPage = 1; searchQuests(); });
+			const searchInput = document.getElementById("searchInput");
+			const typeFilter = document.getElementById("typeFilter");
+			const questList = document.getElementById("questList");
+			const loadMoreDiv = document.getElementById("loadMore");
+			const searchMeta = document.getElementById("searchMeta");
+			const mainContent = document.getElementById("mainContent");
 
-async function searchQuests(append = false) {
-  currentQuery = searchInput.value;
-  currentType = typeFilter.value;
+			// Load quest types
+			fetch("/api/quest-types")
+				.then((r) => r.json())
+				.then((types) => {
+					for (const t of types) {
+						const opt = document.createElement("option");
+						opt.value = t;
+						opt.textContent = t;
+						typeFilter.appendChild(opt);
+					}
+				});
 
-  const params = new URLSearchParams();
-  if (currentQuery) params.set('q', currentQuery);
-  if (currentType) params.set('type', currentType);
-  params.set('page', currentPage);
+			searchInput.addEventListener("input", () => {
+				clearTimeout(debounceTimer);
+				debounceTimer = setTimeout(() => {
+					currentPage = 1;
+					searchQuests();
+				}, 200);
+			});
 
-  const res = await fetch('/api/quests?' + params);
-  const data = await res.json();
-  currentTotal = data.total;
+			typeFilter.addEventListener("change", () => {
+				currentPage = 1;
+				searchQuests();
+			});
 
-  searchMeta.textContent = `${data.total} quest${data.total !== 1 ? 's' : ''} found`;
+			async function searchQuests(append = false) {
+				currentQuery = searchInput.value;
+				currentType = typeFilter.value;
 
-  if (!append) questList.innerHTML = '';
+				const params = new URLSearchParams();
+				if (currentQuery) params.set("q", currentQuery);
+				if (currentType) params.set("type", currentType);
+				params.set("page", currentPage);
 
-  for (const q of data.results) {
-    const div = document.createElement('div');
-    div.className = 'quest-item' + (q.id === activeQuestId ? ' active' : '');
-    div.dataset.id = q.id;
-    const chapterPill = q.chapterName && !q.chapterName.startsWith('QuestChapter_')
-      ? `<span class="q-pill q-chapter" title="${esc(q.chapterName)}">${esc(q.chapterName)}</span>` : '';
-    const actPill = q.actName && !q.actName.startsWith('QuestChapter_')
-      ? `<span class="q-pill q-act" title="${esc(q.actName)}">${esc(q.actName)}</span>` : '';
-    const chapterNum = q.chapterNum && !q.chapterNum.startsWith('QuestChapter_') ? q.chapterNum : '';
+				const res = await fetch("/api/quests?" + params);
+				const data = await res.json();
+				currentTotal = data.total;
 
-    div.innerHTML = `
+				searchMeta.textContent = `${data.total} quest${data.total !== 1 ? "s" : ""} found`;
+
+				if (!append) questList.innerHTML = "";
+
+				for (const q of data.results) {
+					const div = document.createElement("div");
+					div.className = "quest-item" + (q.id === activeQuestId ? " active" : "");
+					div.dataset.id = q.id;
+					const chapterPill =
+						q.chapterName && !q.chapterName.startsWith("QuestChapter_")
+							? `<span class="q-pill q-chapter" title="${esc(q.chapterName)}">${esc(q.chapterName)}</span>`
+							: "";
+					const actPill =
+						q.actName && !q.actName.startsWith("QuestChapter_")
+							? `<span class="q-pill q-act" title="${esc(q.actName)}">${esc(q.actName)}</span>`
+							: "";
+					const chapterNum = q.chapterNum && !q.chapterNum.startsWith("QuestChapter_") ? q.chapterNum : "";
+
+					div.innerHTML = `
       <div class="q-name">${esc(q.name)}</div>
       <div class="q-pills">
         <span class="q-pill q-type">${esc(q.type)}</span>
         ${chapterPill}${actPill}
       </div>
-      <div class="q-id">${q.id}${chapterNum ? ' · ' + esc(chapterNum) : ''}</div>
+      <div class="q-id">${q.id}${chapterNum ? " · " + esc(chapterNum) : ""}</div>
     `;
-    div.onclick = () => selectQuest(q.id, div);
-    questList.appendChild(div);
-  }
+					div.onclick = () => selectQuest(q.id, div);
+					questList.appendChild(div);
+				}
 
-  const loaded = currentPage * data.pageSize;
-  loadMoreDiv.style.display = loaded < data.total ? '' : 'none';
-}
+				const loaded = currentPage * data.pageSize;
+				loadMoreDiv.style.display = loaded < data.total ? "" : "none";
+			}
 
-function loadNextPage() {
-  currentPage++;
-  searchQuests(true);
-}
+			function loadNextPage() {
+				currentPage++;
+				searchQuests(true);
+			}
 
-async function selectQuest(id, el) {
-  activeQuestId = id;
-  document.querySelectorAll('.quest-item').forEach(e => e.classList.remove('active'));
-  if (el) {
-    el.classList.add('active');
-  } else {
-    // Highlight in sidebar if visible
-    const existing = questList.querySelector(`[data-id="${id}"]`);
-    if (existing) existing.classList.add('active');
-  }
+			async function selectQuest(id, el) {
+				activeQuestId = id;
+				document.querySelectorAll(".quest-item").forEach((e) => e.classList.remove("active"));
+				if (el) {
+					el.classList.add("active");
+				} else {
+					// Highlight in sidebar if visible
+					const existing = questList.querySelector(`[data-id="${id}"]`);
+					if (existing) existing.classList.add("active");
+				}
 
-  mainContent.innerHTML = '<div class="empty-state">Loading...</div>';
+				mainContent.innerHTML = '<div class="empty-state">Loading...</div>';
 
-  const res = await fetch('/api/quests/' + id);
-  const data = await res.json();
-  if (data.error) {
-    mainContent.innerHTML = '<div class="empty-state">Quest not found</div>';
-    return;
-  }
+				const res = await fetch("/api/quests/" + id);
+				const data = await res.json();
+				if (data.error) {
+					mainContent.innerHTML = '<div class="empty-state">Quest not found</div>';
+					return;
+				}
 
-  const q = data.quest;
-  const dialog = data.dialog;
-  const chain = data.chain;
+        history.pushState(null, "", `#${id}`);
 
-  let chainHtml = '';
-  if (chain.prev.length > 0 || chain.next.length > 0) {
-    chainHtml = '<div class="quest-chain">';
-    if (chain.prev.length > 0) {
-      chainHtml += '<div class="quest-chain-group"><div class="quest-chain-group-label">Previous</div>';
-      for (const p of chain.prev) {
-        const label = p.name ? esc(p.name) : `Quest ${p.id}`;
-        const qtype = p.type || '';
-        chainHtml += `<a class="quest-chain-btn" data-qtype="${esc(qtype)}" onclick="selectQuest(${p.id})" title="${qtype}"><span class="quest-chain-arrow">&larr;</span> ${label}<span class="quest-chain-type">${esc(qtype)}</span></a>`;
-      }
-      chainHtml += '</div>';
-    }
-    if (chain.next.length > 0) {
-      chainHtml += '<div class="quest-chain-group"><div class="quest-chain-group-label">Next</div>';
-      for (const n of chain.next) {
-        const label = n.name ? esc(n.name) : `Quest ${n.id}`;
-        const qtype = n.type || '';
-        chainHtml += `<a class="quest-chain-btn" data-qtype="${esc(qtype)}" onclick="selectQuest(${n.id})" title="${qtype}">${label} <span class="quest-chain-arrow">&rarr;</span><span class="quest-chain-type">${esc(qtype)}</span></a>`;
-      }
-      chainHtml += '</div>';
-    }
-    chainHtml += '</div>';
-  }
+				const q = data.quest;
+				const objectives = data.objectives || [];
+				const dialog = data.dialog || [];
+				const chain = data.chain;
 
-  let html = `
+				let chainHtml = "";
+				if (chain.prev.length > 0 || chain.next.length > 0) {
+					chainHtml = '<div class="quest-chain">';
+					if (chain.prev.length > 0) {
+						chainHtml += '<div class="quest-chain-group"><div class="quest-chain-group-label">Previous</div>';
+						for (const p of chain.prev) {
+							const label = p.name ? esc(p.name) : `Quest ${p.id}`;
+							const qtype = p.type || "";
+							chainHtml += `<a class="quest-chain-btn" data-qtype="${esc(qtype)}" onclick="selectQuest(${p.id})" title="${qtype}"><span class="quest-chain-arrow">&larr;</span> ${label}<span class="quest-chain-type">${esc(qtype)}</span></a>`;
+						}
+						chainHtml += "</div>";
+					}
+					if (chain.next.length > 0) {
+						chainHtml += '<div class="quest-chain-group"><div class="quest-chain-group-label">Next</div>';
+						for (const n of chain.next) {
+							const label = n.name ? esc(n.name) : `Quest ${n.id}`;
+							const qtype = n.type || "";
+							chainHtml += `<a class="quest-chain-btn" data-qtype="${esc(qtype)}" onclick="selectQuest(${n.id})" title="${qtype}">${label} <span class="quest-chain-arrow">&rarr;</span><span class="quest-chain-type">${esc(qtype)}</span></a>`;
+						}
+						chainHtml += "</div>";
+					}
+					chainHtml += "</div>";
+				}
+
+				let html = `
     <div class="quest-header">
       <h1>${esc(q.name)}</h1>
       ${chainHtml}
@@ -249,66 +685,118 @@ async function selectQuest(id, el) {
       <div class="q-info">
         <span>${esc(q.type)}</span>
         <span>ID: ${q.id}</span>
-        ${q.chapterName && !q.chapterName.startsWith('QuestChapter_') ? `<span>${esc(q.chapterName)}</span>` : ''}
-        ${q.actName && !q.actName.startsWith('QuestChapter_') ? `<span>${esc(q.actName)}</span>` : ''}
-        ${q.chapterNum && !q.chapterNum.startsWith('QuestChapter_') ? `<span>${esc(q.chapterNum)}</span>` : ''}
+        ${q.chapterName && !q.chapterName.startsWith("QuestChapter_") ? `<span>${esc(q.chapterName)}</span>` : ""}
+        ${q.actName && !q.actName.startsWith("QuestChapter_") ? `<span>${esc(q.actName)}</span>` : ""}
+        ${q.chapterNum && !q.chapterNum.startsWith("QuestChapter_") ? `<span>${esc(q.chapterNum)}</span>` : ""}
       </div>
     </div>
   `;
 
-  html += '<div class="dialog-section">';
-  const totalItems = dialog.reduce((sum, g) => sum + g.items.length, 0);
-  html += `<h2>Dialog (${dialog.length} group${dialog.length !== 1 ? 's' : ''}, ${totalItems} items)</h2>`;
+				if (objectives.length > 0) {
+					html += '<div class="objectives-section">';
+					html += `<h2>Objectives (${objectives.length})</h2>`;
+					for (let i = 0; i < objectives.length; i++) {
+						const obj = objectives[i];
+						html += `<div class="objective-item">`;
+						html += `<div class="objective-num">${i + 1}</div>`;
+						html += `<div class="objective-text">${esc(obj.text)}</div>`;
+						if (obj.conditionType) {
+							html += `<div class="objective-type">${esc(obj.conditionType)}</div>`;
+						}
+						html += `</div>`;
+					}
+					html += '</div>';
+				}
 
-  if (dialog.length === 0) {
-    html += '<div class="no-dialog">No dialog found for this quest</div>';
-  }
+				html += '<div class="dialog-section">';
+				html += `<h2>Dialog (${dialog.length} group${dialog.length !== 1 ? "s" : ""})</h2>`;
 
-  for (const group of dialog) {
-    const label = group.stepLabel.startsWith('Quest_') ? (group.nodeDesc || `Step ${group.nodeId}`) : group.stepLabel;
-    html += `<div class="dialog-group">`;
-    html += `<div class="dialog-group-label">${esc(label)}</div>`;
+				if (dialog.length === 0) {
+					html += '<div class="no-dialog">No dialog found for this quest</div>';
+				}
 
-    for (const item of group.items) {
-      if (item.kind === 'cutscene') {
-        html += `<div class="dialog-cutscene"><span class="dialog-cutscene-icon">&#9654;</span> Cutscene: ${esc(item.videoName)}</div>`;
-      } else if (item.kind === 'centerText') {
-        html += `<div class="dialog-center-text">${esc(item.text)}</div>`;
-      } else if (item.kind === 'narration') {
-        html += `<div class="dialog-narration">${esc(item.text)}</div>`;
-      } else {
-        html += `
-          <div class="dialog-line">
-            <div class="dialog-speaker">${esc(item.speaker)}</div>
-            <div class="dialog-text">${esc(item.text)}</div>
-          </div>
-        `;
-        if (item.options) {
-          html += '<div class="dialog-options">';
-          for (const opt of item.options) {
-            html += `<div class="dialog-option">${esc(opt.text)}</div>`;
-          }
-          html += '</div>';
-        }
+				for (const group of dialog) {
+					const label = group.stepLabel.startsWith("Quest_")
+						? group.nodeDesc || `Step ${group.nodeId}`
+						: group.stepLabel;
+					html += `<div class="dialog-group">`;
+					html += `<div class="dialog-group-label">${esc(label)}</div>`;
+					html += renderItems(group.items);
+					html += "</div>";
+				}
+
+				html += "</div>";
+				mainContent.innerHTML = html;
+			}
+
+			function renderItems(items) {
+				let html = "";
+				for (const item of items) {
+					if (item.kind === "branch") {
+						// Render the prompt line without its options (they become branch headers)
+						const p = item.prompt;
+						if (p.kind === "talk") {
+							html += `<div class="dialog-line">`;
+							html += `<div class="dialog-speaker">${esc(p.speaker)}</div>`;
+							html += `<div class="dialog-text">${esc(p.text)}</div>`;
+							html += `</div>`;
+						} else if (p.kind === "narration") {
+							html += `<div class="dialog-narration">${esc(p.text)}</div>`;
+						}
+						// Render each option as a collapsible branch
+						for (const opt of item.options) {
+							html += `<div class="dialog-branch">`;
+							if (opt.items.length > 0) {
+								html += `<details open>`;
+								html += `<summary>${esc(opt.text)}</summary>`;
+								html += `<div class="dialog-branch-content">`;
+								html += renderItems(opt.items);
+								html += `</div></details>`;
+							} else {
+								html += `<summary style="list-style:none;cursor:default">${esc(opt.text)}</summary>`;
+							}
+							html += `</div>`;
+						}
+					} else if (item.kind === "cutscene") {
+						html += `<div class="dialog-cutscene"><span class="dialog-cutscene-icon">&#9654;</span> Cutscene: ${esc(item.videoName)}</div>`;
+					} else if (item.kind === "centerText") {
+						html += `<div class="dialog-center-text">${esc(item.text)}</div>`;
+					} else if (item.kind === "narration") {
+						html += `<div class="dialog-narration">${esc(item.text)}</div>`;
+					} else {
+						html += `<div class="dialog-line">`;
+						html += `<div class="dialog-speaker">${esc(item.speaker)}</div>`;
+						html += `<div class="dialog-text">${esc(item.text)}</div>`;
+						html += `</div>`;
+						// For non-branching options (cosmetic choices), show inline
+						if (item.options && item.options.length > 0) {
+							html += '<div class="dialog-options">';
+							for (const opt of item.options) {
+								html += `<div class="dialog-option">${esc(opt.text)}</div>`;
+							}
+							html += "</div>";
+						}
+					}
+				}
+				return html;
+			}
+
+			function esc(s) {
+				if (!s) return "";
+				const d = document.createElement("div");
+				d.textContent = String(s);
+				return d.innerHTML;
+			}
+
+      const loadQuestId = window.location.hash
+      if (loadQuestId) {
+        selectQuest(loadQuestId.substring(1));
       }
-    }
+      
 
-    html += '</div>';
-  }
-
-  html += '</div>';
-  mainContent.innerHTML = html;
-}
-
-function esc(s) {
-  if (!s) return '';
-  const d = document.createElement('div');
-  d.textContent = String(s);
-  return d.innerHTML;
-}
-
-// Initial load
-searchQuests();
-</script>
-</body>
+			// Initial load
+			searchQuests();
+		</script>
+		</div>
+	</body>
 </html>
